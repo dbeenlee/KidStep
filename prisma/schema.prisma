@@ -1,0 +1,172 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== 数据模型 ====================
+// 注意：SQLite 不支持枚举，改用 String 字段 + 应用层校验
+
+model User {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  nickname  String?
+  avatar    String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  children  Child[]
+  favorites Favorite[]
+
+  @@map("users")
+}
+
+model Child {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  name         String
+  birthday     DateTime
+  gender       String   @default("UNKNOWN")
+  targetSchool String?  @map("target_school")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assessments  Assessment[]
+  checkins     Checkin[]
+  tasks        Task[]
+  points       Point[]
+  milestones   Milestone[]
+
+  @@map("children")
+}
+
+model Assessment {
+  id        String   @id @default(cuid())
+  childId   String   @map("child_id")
+  dimension String
+  score     Int
+  answers   String   // JSON string
+  report    String?  // JSON string
+  createdAt DateTime @default(now()) @map("created_at")
+
+  child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@index([childId, createdAt])
+  @@map("assessments")
+}
+
+model Checkin {
+  id        String   @id @default(cuid())
+  childId   String   @map("child_id")
+  date      DateTime
+  type      String
+  itemName  String   @map("item_name")
+  note      String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@unique([childId, date, type, itemName])
+  @@index([childId, date])
+  @@map("checkins")
+}
+
+model Task {
+  id            String    @id @default(cuid())
+  childId       String    @map("child_id")
+  phase         String
+  taskType      String    @map("task_type")
+  templateId    String    @map("template_id")
+  title         String
+  description   String?
+  duration      Int?
+  status        String    @default("PENDING")
+  scheduledDate DateTime  @map("scheduled_date")
+  completedAt   DateTime? @map("completed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  child         Child     @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@index([childId, scheduledDate])
+  @@index([childId, status])
+  @@map("tasks")
+}
+
+model Point {
+  id        String   @id @default(cuid())
+  childId   String   @map("child_id")
+  amount    Int
+  reason    String
+  source    String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@index([childId, createdAt])
+  @@map("points")
+}
+
+model Milestone {
+  id        String   @id @default(cuid())
+  childId   String   @map("child_id")
+  type      String
+  content   String?
+  mediaUrls String?  @map("media_urls") // JSON string
+  createdAt DateTime @default(now()) @map("created_at")
+
+  child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@index([childId, createdAt])
+  @@map("milestones")
+}
+
+model Article {
+  id        String   @id @default(cuid())
+  category  String
+  title     String
+  content   String
+  summary   String?
+  coverUrl  String?  @map("cover_url")
+  tags      String?  // JSON string
+  views     Int      @default(0)
+  likes     Int      @default(0)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  favorites Favorite[]
+
+  @@index([category])
+  @@map("articles")
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  articleId String   @map("article_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, articleId])
+  @@map("favorites")
+}
+
+model SmsCode {
+  id        String   @id @default(cuid())
+  phone     String
+  code      String
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([phone, code])
+  @@map("sms_codes")
+}

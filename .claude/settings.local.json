@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(file:*)",
+      "Bash(npx create-next-app@latest kidstep --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(mkdir -p kidstep)",
+      "Bash(mkdir -p src/app/\\\\\\(auth\\\\\\)/login src/app/\\\\\\(auth\\\\\\)/onboarding src/app/\\\\\\(main\\\\\\)/home src/app/\\\\\\(main\\\\\\)/knowledge/\\\\[id\\\\] src/app/\\\\\\(main\\\\\\)/assessment/quiz src/app/\\\\\\(main\\\\\\)/assessment/report/\\\\[id\\\\] src/app/\\\\\\(main\\\\\\)/plan src/app/\\\\\\(main\\\\\\)/profile/children src/app/\\\\\\(main\\\\\\)/profile/archive src/app/\\\\\\(main\\\\\\)/profile/settings src/app/api/auth/\\\\[...nextauth\\\\] src/app/api/sms/send src/app/api/children/\\\\[id\\\\] src/app/api/assessments/\\\\[id\\\\] src/app/api/checkins/calendar src/app/api/checkins/stats src/app/api/checkins/today src/app/api/articles/\\\\[id\\\\] src/app/api/articles/search src/app/api/tasks/today src/app/api/tasks/\\\\[id\\\\]/complete src/app/api/tasks/\\\\[id\\\\]/skip src/app/api/points src/app/api/milestones/\\\\[id\\\\] src/app/api/favorites/\\\\[id\\\\] src/components/ui src/components/layout src/components/business src/lib src/stores src/hooks src/types src/constants prisma public/icons public/images)",
+      "Bash(npm install:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npx tsc:*)",
+      "Bash(xargs ls:*)",
+      "Bash(npm run:*)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(curl -s http://localhost:3000/home)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(mkdir -p /mnt/d/webSite/KidStep/kidstep/public/images/brand)",
+      "Bash(curl -sL \"https://qiniu.beenlee.com/blog/ChatGPTImage12_26_57.png\" -o app-icon.png)",
+      "Bash(curl -sL \"https://qiniu.beenlee.com/brand/tongxing/v2/1779417544_v2-sunrise-path.jpg\" -o logo-horizontal.jpg)"
+    ]
+  }
+}
