@@ -187,4 +187,4 @@ npm run db:migrate   # Create migration
 
 ## License
 
-Private project. All rights reserved.
+[Apache License 2.0](./LICENSE)

@@ -187,4 +187,4 @@ npm run db:migrate   # 创建迁移
 
 ## 许可证
 
-私有项目，保留所有权利。
+[Apache License 2.0](./LICENSE)
