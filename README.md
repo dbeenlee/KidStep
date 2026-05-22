@@ -162,6 +162,49 @@ npm run db:migrate   # Create migration
 
 ---
 
+## Roadmap
+
+### v1.0 - MVP (In Progress)
+
+- [x] Project scaffolding (Next.js 14 + Prisma + Tailwind)
+- [x] Database schema design
+- [x] Phone number + SMS authentication
+- [x] Child profile management
+- [x] Ability assessment (4 dimensions, 40 questions, radar chart)
+- [x] Daily check-in system with calendar
+- [x] Knowledge center (article list, detail, favorites)
+- [x] Growth archive with milestones
+- [x] Responsive layout (mobile / tablet / desktop)
+- [x] Dark mode support
+
+### v1.1 - Enhanced (Planned)
+
+- [ ] Points system (rewards only, no deductions)
+- [ ] Single-task mode (one task at a time)
+- [ ] Training plan (3-phase personalized tasks)
+- [ ] Dashboard with weekly/monthly reports
+- [ ] Full knowledge base (33 articles + search)
+- [ ] Share growth report to WeChat
+- [ ] Photo upload for milestones
+
+### v1.2 - Growth (Planned)
+
+- [ ] Family member invitations
+- [ ] Auto-generated growth posters
+- [ ] Achievement system (badges, unlockables)
+- [ ] Smart review tasks based on weak areas
+- [ ] Image recognition (food/medicine via AI)
+- [ ] Voice input for status recording
+
+### Technical Debt (Ongoing)
+
+- [ ] Unit tests + E2E tests
+- [ ] Lighthouse performance > 90
+- [ ] SEO optimization (sitemap, OG tags, structured data)
+- [ ] Analytics and funnel tracking
+
+---
+
 ## Brand
 
 | Item | Value |
