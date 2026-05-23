@@ -20,8 +20,11 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  children  Child[]
-  favorites Favorite[]
+  children      Child[]
+  favorites     Favorite[]
+  achievements  UserAchievement[]
+  invitations   Invitation[]
+  acceptedInvitations Invitation[] @relation("InvitationTarget")
 
   @@map("users")
 }
@@ -42,6 +45,7 @@ model Child {
   tasks        Task[]
   points       Point[]
   milestones   Milestone[]
+  achievements UserAchievement[]
 
   @@map("children")
 }
@@ -103,7 +107,7 @@ model Point {
   childId   String   @map("child_id")
   amount    Int
   reason    String
-  source    String
+  source    String   // CHECKIN | ASSESSMENT | MILESTONE | STREAK | TASK_COMPLETE
   createdAt DateTime @default(now()) @map("created_at")
 
   child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
@@ -169,4 +173,51 @@ model SmsCode {
 
   @@index([phone, code])
   @@map("sms_codes")
+}
+
+// ==================== v1.2 预留模型 ====================
+
+model Achievement {
+  id          String   @id @default(cuid())
+  code        String   @unique          // 如 "first_assessment", "streak_7"
+  title       String                    // 显示名称
+  description String                    // 解锁条件描述
+  icon        String?                   // 图标名或URL
+  category    String                    // ASSESSMENT | CHECKIN | TASK | KNOWLEDGE
+  condition   String                    // JSON: {"type":"streak","days":7}
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  userAchievements UserAchievement[]
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  childId       String   @map("child_id")
+  achievementId String   @map("achievement_id")
+  unlockedAt    DateTime @default(now()) @map("unlocked_at")
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  child       Child       @relation(fields: [childId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([childId, achievementId])
+  @@map("user_achievements")
+}
+
+model Invitation {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")    // 邀请人
+  targetId  String?  @map("target_id")  // 被邀请人（接受后填入）
+  code      String   @unique            // 邀请码
+  role      String   @default("viewer") // admin | viewer
+  status    String   @default("pending") // pending | accepted | expired
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  target User? @relation("InvitationTarget", fields: [targetId], references: [id], onDelete: SetNull)
+
+  @@map("invitations")
 }
