@@ -13,12 +13,14 @@ datasource db {
 // 注意：SQLite 不支持枚举，改用 String 字段 + 应用层校验
 
 model User {
-  id        String   @id @default(cuid())
-  phone     String   @unique
-  nickname  String?
-  avatar    String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(cuid())
+  phone        String?  @unique
+  email        String?  @unique
+  passwordHash String?  @map("password_hash")
+  nickname     String?
+  avatar       String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   children      Child[]
   favorites     Favorite[]

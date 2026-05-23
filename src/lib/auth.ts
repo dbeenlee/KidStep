@@ -1,5 +1,6 @@
 import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
+import { compare } from "bcryptjs"
 import { db } from "@/lib/db"
 
 /** 是否为开发环境 */
@@ -11,7 +12,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/login",
   },
   providers: [
+    // 手机号 + 验证码登录
     CredentialsProvider({
+      id: "phone",
       name: "phone",
       credentials: {
         phone: { label: "手机号", type: "text" },
@@ -29,7 +32,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             create: { phone },
             update: {},
           })
-          return { id: user.id, name: user.nickname ?? user.phone }
+          return { id: user.id, name: user.nickname ?? user.phone ?? "用户" }
         }
 
         // 生产模式：验证短信验证码
@@ -56,7 +59,33 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           update: {},
         })
 
-        return { id: user.id, name: user.nickname ?? user.phone }
+        return { id: user.id, name: user.nickname ?? user.phone ?? "用户" }
+      },
+    }),
+    // 邮箱 + 密码登录
+    CredentialsProvider({
+      id: "email",
+      name: "email",
+      credentials: {
+        email: { label: "邮箱", type: "email" },
+        password: { label: "密码", type: "password" },
+      },
+      async authorize(credentials) {
+        const email = credentials?.email as string
+        const password = credentials?.password as string
+        if (!email || !password) return null
+
+        // 查找用户
+        const user = await db.user.findUnique({
+          where: { email },
+        })
+        if (!user || !user.passwordHash) return null
+
+        // 验证密码
+        const isValid = await compare(password, user.passwordHash)
+        if (!isValid) return null
+
+        return { id: user.id, name: user.nickname ?? email.split("@")[0] }
       },
     }),
   ],
