@@ -15,7 +15,7 @@ import { isWechatBrowser, setupWechatShareForReport } from "@/lib/wechat"
 import { trackAssessmentCompleted, trackShare } from "@/lib/analytics"
 import { SkeletonCard } from "@/components/ui/SkeletonCard"
 import { DIMENSION_CONFIG, getScoreColor, getScoreLabel } from "@/constants/dimensions"
-import { generateRadarData, calculateScore } from "@/lib/scoring"
+import { generateRadarData } from "@/lib/scoring"
 import { useQuizStore } from "@/stores/useQuizStore"
 import type { Dimension, QuizAnswer, AssessmentReport } from "@/types/assessment"
 
@@ -46,14 +46,46 @@ export default function ReportPage() {
   const [displayReport, setDisplayReport] = useState<AssessmentReport | null>(null)
 
   useEffect(() => {
+    // 优先从 store 读取（秒加载，无需等待 API）
+    const store = useQuizStore.getState()
+    if (store.dimension && store.answers.length > 0 && store.score != null) {
+      loadFromStore(store)
+      return
+    }
+
+    // store 为空（页面刷新或直接访问），从 API 获取
     if (id === "local") {
-      loadLocalReport()
+      setStatus("error")
     } else {
       fetchAssessment(id)
     }
   }, [id])
 
-  /** 从API获取评估详情 */
+  /** 从本地store加载（即时，无网络延迟） */
+  function loadFromStore(store: ReturnType<typeof useQuizStore.getState>) {
+    const score = store.score!
+
+    setAssessment({
+      id: id === "local" ? "local" : id,
+      childId: "",
+      dimension: store.dimension!,
+      score,
+      answers: store.answers,
+      report: store.report,
+      createdAt: new Date().toISOString(),
+    })
+
+    const scores: Record<string, number> = {}
+    scores[store.dimension!] = score
+    setRadarData(generateRadarData(scores))
+
+    setDisplayReport(store.report)
+    setStatus("ready")
+
+    trackAssessmentCompleted(store.dimension!, score)
+  }
+
+  /** 从API获取评估详情（页面刷新时的 fallback） */
   async function fetchAssessment(assessmentId: string) {
     try {
       const res = await fetch(`/api/assessments/${assessmentId}`)
@@ -65,58 +97,17 @@ export default function ReportPage() {
       const data: AssessmentData = json.data
       setAssessment(data)
 
-      // 构建雷达图数据（单维度评估时只显示该维度）
       const scores: Record<string, number> = {}
       scores[data.dimension] = data.score
       setRadarData(generateRadarData(scores))
 
-      // 使用数据库中的报告，或根据答案重新生成
-      if (data.report) {
-        setDisplayReport(data.report)
-      } else {
-        // 从store获取题目重新生成报告
-        const store = useQuizStore.getState()
-        if (store.report) {
-          setDisplayReport(store.report)
-        }
-      }
-
+      setDisplayReport(data.report)
       setStatus("ready")
 
-      // 埋点：评估完成
       trackAssessmentCompleted(data.dimension, data.score)
     } catch {
       setStatus("error")
     }
-  }
-
-  /** 从本地store加载报告（未登录时） */
-  function loadLocalReport() {
-    const store = useQuizStore.getState()
-    if (!store.dimension || store.answers.length === 0) {
-      setStatus("error")
-      return
-    }
-
-    const score = store.score ?? calculateScore(store.answers)
-
-    setAssessment({
-      id: "local",
-      childId: "",
-      dimension: store.dimension,
-      score,
-      answers: store.answers,
-      report: store.report,
-      createdAt: new Date().toISOString(),
-    })
-
-    // 构建雷达图数据
-    const scores: Record<string, number> = {}
-    scores[store.dimension] = score
-    setRadarData(generateRadarData(scores))
-
-    setDisplayReport(store.report)
-    setStatus("ready")
   }
 
   /** 分享功能 */
@@ -158,12 +149,17 @@ export default function ReportPage() {
     return (
       <div className="px-4 py-6 max-w-lg mx-auto">
         <div className="text-center py-16">
-          <p className="text-gray-500 dark:text-gray-400 mb-4">无法加载评估报告</p>
+          <p className="text-gray-500 dark:text-gray-400 mb-2">
+            {id === "local" ? "评估数据已过期" : "无法加载评估报告"}
+          </p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-6">
+            {id === "local" ? "页面刷新后本地数据丢失，请重新答题" : "请稍后重试"}
+          </p>
           <button
             onClick={() => router.push("/assessment")}
             className="h-11 px-6 bg-[#4CAF50] text-white rounded-xl font-medium"
           >
-            返回评估首页
+            {id === "local" ? "重新评估" : "返回评估首页"}
           </button>
         </div>
       </div>

@@ -106,44 +106,29 @@ function QuizContent() {
   const handleSubmit = useCallback(async () => {
     setStatus("submitting")
 
-    try {
-      const score = calculateScore(answers)
-      const report = generateReport(answers, questions)
+    const score = calculateScore(answers)
+    const report = generateReport(answers, questions)
 
-      // 保存到本地store
-      submit(score, report)
+    // 先保存到本地store，确保报告页可立即读取
+    submit(score, report)
 
-      // 提交到API
-      // 注意：实际使用时需要获取当前孩子的childId
-      // 这里先从localStorage获取（由评估首页设置）
-      const childId = localStorage.getItem("currentChildId")
-      if (!childId) {
-        // 没有childId时跳转到报告页（本地模式）
-        router.push(`/assessment/report/local`)
-        return
-      }
-
-      const res = await fetch("/api/assessments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          childId,
-          dimension,
-          answers,
-        }),
-      })
-
-      if (res.ok) {
-        const json = await res.json()
-        const assessmentId = json.data.id as string
-        router.push(`/assessment/report/${assessmentId}`)
-      } else {
-        // API失败时也跳转到本地报告
-        router.push(`/assessment/report/local`)
-      }
-    } catch {
-      router.push(`/assessment/report/local`)
+    // 立即跳转到报告页（本地模式），不等待 API
+    const childId = localStorage.getItem("currentChildId")
+    if (!childId) {
+      router.push("/assessment/report/local")
+      return
     }
+
+    router.push("/assessment/report/local")
+
+    // 后台异步提交到 API（不阻塞跳转）
+    fetch("/api/assessments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ childId, dimension, answers }),
+    }).catch(() => {
+      // 静默失败，本地报告已显示
+    })
   }, [answers, questions, dimension, submit, router])
 
   // 加载中
