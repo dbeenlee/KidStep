@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { randomItem } from "@/lib/utils"
+import { calculateStreak, calculateCheckinPoints } from "@/lib/streakCalculator"
 
 /** POST /api/checkins - 打卡 */
 export async function POST(request: Request) {
@@ -57,24 +58,8 @@ export async function POST(request: Request) {
     take: 30,
   })
 
-  let streak = 0
-  const current = new Date(today)
-  for (const c of recentCheckins) {
-    const checkinDate = new Date(c.date)
-    checkinDate.setHours(0, 0, 0, 0)
-    const diffDays = Math.floor(
-      (current.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24)
-    )
-    if (diffDays === streak) {
-      streak++
-    } else {
-      break
-    }
-  }
-
-  const basePoints = 1
-  const bonusPoints = Math.min(streak, 7)
-  const totalPoints = basePoints + bonusPoints
+  const streak = calculateStreak(recentCheckins, today)
+  const { base: basePoints, bonus: bonusPoints, total: totalPoints } = calculateCheckinPoints(streak)
 
   const point = await db.point.create({
     data: {
@@ -95,6 +80,16 @@ export async function POST(request: Request) {
     "每一步都是进步！",
     "好习惯就是这样养成的！",
   ]
+
+  // 触发成就检查（不阻塞主流程）
+  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000"
+  fetch(`${baseUrl}/api/achievements/check`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ childId, event: "checkin" }),
+  }).catch(() => {
+    // 静默处理，不影响主流程
+  })
 
   return NextResponse.json({
     success: true,

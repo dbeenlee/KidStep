@@ -9,6 +9,7 @@ import {
   Star,
   Award,
   Settings,
+  Users,
 } from "lucide-react"
 import { useChildStore } from "@/stores/useChildStore"
 import { PointsBadge } from "@/components/business/PointsBadge"
@@ -20,6 +21,8 @@ const menuItems = [
   { icon: FolderOpen, label: "成长档案", href: "/profile/archive" },
   { icon: Star, label: "我的收藏", href: "/profile/favorites" },
   { icon: Award, label: "积分记录", href: "/profile/points" },
+  { icon: Award, label: "成就徽章", href: "/profile/achievements" },
+  { icon: Users, label: "家庭成员", href: "/profile/family" },
   { icon: Settings, label: "设置", href: "/profile/settings" },
 ]
 
@@ -38,6 +41,7 @@ function getAgeText(birthday: string): string {
 export default function ProfilePage() {
   const { currentChild, children, setChildren } = useChildStore()
   const [totalPoints, setTotalPoints] = useState(0)
+  const [error, setError] = useState(false)
 
   /** 加载孩子列表 */
   useEffect(() => {
@@ -48,8 +52,9 @@ export default function ProfilePage() {
         if (data.success) {
           setChildren(data.data)
         }
-      } catch {
-        // 静默处理
+      } catch (err) {
+        console.error("加载孩子列表失败:", err)
+        setError(true)
       }
     }
     loadChildren()
@@ -63,18 +68,25 @@ export default function ProfilePage() {
         const res = await fetch(`/api/points?childId=${currentChild.id}`)
         const data = await res.json()
         if (data.success) {
-          const sum = data.data.reduce(
-            (acc: number, p: { amount: number }) => acc + p.amount,
-            0
-          )
-          setTotalPoints(sum)
+          setTotalPoints(data.data.totalPoints ?? 0)
         }
       } catch {
         // 静默处理
       }
     }
     loadPoints()
-  }, [currentChild])
+  }, [currentChild?.id])
+
+  if (error) {
+    return (
+      <div className="px-4 py-6 max-w-lg md:max-w-2xl mx-auto">
+        <h1 className="text-xl md:text-2xl font-bold mb-6">我的</h1>
+        <div className="bg-white dark:bg-gray-900 rounded-xl p-8 text-center">
+          <p className="text-gray-500 dark:text-gray-400">加载失败，请刷新页面重试</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="px-4 py-6 max-w-lg md:max-w-2xl mx-auto">

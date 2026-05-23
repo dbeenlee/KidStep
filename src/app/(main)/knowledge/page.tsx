@@ -3,7 +3,9 @@
 import { useEffect, useState, useCallback, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Search, X } from "lucide-react"
+import { useToast } from "@/hooks/useToast"
 import ArticleCard from "@/components/business/ArticleCard"
+import { SkeletonList } from "@/components/ui/SkeletonList"
 
 /** 文章分类定义 */
 const categories = [
@@ -29,7 +31,7 @@ interface ArticleItem {
 
 export default function KnowledgePage() {
   return (
-    <Suspense fallback={<div className="px-4 py-6 max-w-lg mx-auto"><p className="text-gray-400 dark:text-gray-500 text-center py-16">加载中...</p></div>}>
+    <Suspense fallback={<div className="px-4 py-6 max-w-lg mx-auto"><SkeletonList count={4} /></div>}>
       <KnowledgeContent />
     </Suspense>
   )
@@ -38,6 +40,8 @@ export default function KnowledgePage() {
 function KnowledgeContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
+
+  const { error: showError } = useToast()
 
   const [articles, setArticles] = useState<ArticleItem[]>([])
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set())
@@ -63,10 +67,13 @@ function KnowledgeContent() {
       if (data.success) {
         setArticles(data.data.items)
       }
+    } catch (err) {
+      console.error("加载文章列表失败:", err)
+      showError("加载文章失败，请稍后重试")
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [showError])
 
   /** 获取收藏列表 */
   const fetchFavorites = useCallback(async () => {
@@ -134,8 +141,9 @@ function KnowledgeContent() {
         })
         setFavoriteIds(prev => new Set(prev).add(articleId))
       }
-    } catch {
-      // 静默失败
+    } catch (err) {
+      console.error("切换收藏失败:", err)
+      showError("操作失败，请稍后重试")
     }
   }
 
@@ -184,7 +192,7 @@ function KnowledgeContent() {
 
       {/* 文章列表 - iPad双列 */}
       {loading ? (
-        <div className="text-center text-gray-400 dark:text-gray-500 py-16">加载中...</div>
+        <SkeletonList count={4} />
       ) : articles.length === 0 ? (
         <div className="text-center text-gray-400 dark:text-gray-500 py-16">
           {searchQuery ? "未找到相关文章" : "暂无文章"}

@@ -33,39 +33,58 @@ export async function GET(request: Request) {
     )
   }
 
-  // 总积分
-  const points = await db.point.findMany({
-    where: { childId },
-    select: { amount: true },
-  })
-  const totalPoints = points.reduce((sum, p) => sum + p.amount, 0)
-
-  // 积分历史（最近20条）
-  const history = await db.point.findMany({
-    where: { childId },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-  })
-
-  // 本月获得积分
+  // 本月起始时间
   const monthStart = new Date()
   monthStart.setDate(1)
   monthStart.setHours(0, 0, 0, 0)
 
-  const monthPoints = await db.point.findMany({
-    where: {
-      childId,
-      createdAt: { gte: monthStart },
-    },
-    select: { amount: true },
-  })
-  const monthTotal = monthPoints.reduce((sum, p) => sum + p.amount, 0)
+  // 本周起始时间（周一）
+  const weekStart = new Date()
+  const dayOfWeek = weekStart.getDay()
+  const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+  weekStart.setDate(weekStart.getDate() - diff)
+  weekStart.setHours(0, 0, 0, 0)
+
+  // 用聚合查询替代全表加载，防止 OOM
+  const [totalAgg, monthAgg, weekAgg, history] = await Promise.all([
+    db.point.aggregate({
+      where: { childId },
+      _sum: { amount: true },
+    }),
+    db.point.aggregate({
+      where: { childId, createdAt: { gte: monthStart } },
+      _sum: { amount: true },
+    }),
+    db.point.aggregate({
+      where: { childId, createdAt: { gte: weekStart } },
+      _sum: { amount: true },
+    }),
+    db.point.findMany({
+      where: { childId },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: {
+        id: true,
+        amount: true,
+        reason: true,
+        source: true,
+        createdAt: true,
+      },
+    }),
+  ])
+
+  const totalPoints = totalAgg._sum.amount ?? 0
+  const totalEarned = totalPoints // 积分只增不减，总积分即总获得
+  const monthTotal = monthAgg._sum.amount ?? 0
+  const thisWeekTotal = weekAgg._sum.amount ?? 0
 
   return NextResponse.json({
     success: true,
     data: {
       totalPoints,
+      totalEarned,
       monthTotal,
+      thisWeekTotal,
       history,
     },
   })

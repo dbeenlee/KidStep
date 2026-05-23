@@ -14,9 +14,11 @@ import {
   ChevronRight,
 } from "lucide-react"
 import { ThemeToggle } from "@/components/business/ThemeToggle"
+import { useToast } from "@/hooks/useToast"
 
 export default function SettingsPage() {
   const router = useRouter()
+  const { success } = useToast()
 
   const [notifications, setNotifications] = useState(true)
   const [pushTime, setPushTime] = useState("08:00")
@@ -27,7 +29,7 @@ export default function SettingsPage() {
     try {
       localStorage.clear()
       sessionStorage.clear()
-      alert("缓存已清除")
+      success("缓存已清除")
     } catch {
       // 静默处理
     }

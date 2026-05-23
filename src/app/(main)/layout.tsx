@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, BookOpen, BarChart3, ClipboardList, User } from "lucide-react"
+import { Home, BookOpen, BarChart3, BarChart2, ClipboardList, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useMediaQuery } from "@/hooks/useMediaQuery"
 
@@ -10,6 +10,7 @@ const tabs = [
   { href: "/home", icon: Home, label: "首页" },
   { href: "/knowledge", icon: BookOpen, label: "知识" },
   { href: "/assessment", icon: BarChart3, label: "评估" },
+  { href: "/dashboard", icon: BarChart2, label: "数据" },
   { href: "/plan", icon: ClipboardList, label: "计划" },
   { href: "/profile", icon: User, label: "我的" },
 ]
@@ -22,6 +23,11 @@ export default function MainLayout({
   const pathname = usePathname()
   const isDesktop = useMediaQuery("(min-width: 1024px)")
 
+  // SSR 水合前渲染占位符，避免布局闪烁
+  if (isDesktop === null) {
+    return <div className="flex min-h-screen">{children}</div>
+  }
+
   // iPad横屏/桌面端：侧边栏布局
   if (isDesktop) {
     return (
@@ -32,9 +38,9 @@ export default function MainLayout({
             <h1 className="text-xl font-bold text-[#4CAF50]">童行</h1>
             <p className="text-xs text-gray-400 mt-0.5">每一步，都陪你走</p>
           </div>
-          <nav className="flex-1 py-4">
+          <nav className="flex-1 py-4" aria-label="主导航">
             {tabs.map(tab => {
-              const isActive = pathname.startsWith(tab.href)
+              const isActive = pathname === tab.href || pathname.startsWith(tab.href + "/")
               return (
                 <Link
                   key={tab.href}
@@ -71,10 +77,10 @@ export default function MainLayout({
       <main className="flex-1 pb-20">{children}</main>
 
       {/* 底部导航栏 */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 safe-pb z-40">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 safe-pb z-40" aria-label="主导航">
         <div className="flex items-center justify-around max-w-lg mx-auto h-16">
           {tabs.map(tab => {
-            const isActive = pathname.startsWith(tab.href)
+            const isActive = pathname === tab.href || pathname.startsWith(tab.href + "/")
             return (
               <Link
                 key={tab.href}

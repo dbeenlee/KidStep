@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Target, Flame, TrendingUp, Calendar, Trophy, Star } from "lucide-react"
 import { useTaskStore } from "@/stores/useTaskStore"
 import { useChildStore } from "@/stores/useChildStore"
 import { TaskCard } from "@/components/business/TaskCard"
 import { CalendarHeatmap } from "@/components/business/CalendarHeatmap"
 import { cn, randomItem } from "@/lib/utils"
+import { getCurrentPhase } from "@/lib/phaseCalculator"
 import { ENCOURAGEMENTS } from "@/constants/encouragements"
 
 /** 打卡统计数据 */
@@ -64,12 +65,17 @@ export default function PlanPage() {
 
   const [stats, setStats] = useState<CheckinStats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [currentPhase] = useState("PHASE_1") // 默认第一阶段
+  const [error, setError] = useState(false)
+  const currentPhase = useMemo(() => {
+    if (!currentChild) return "PHASE_1"
+    return getCurrentPhase(currentChild.birthday) ?? "PHASE_1"
+  }, [currentChild])
 
   // 加载今日任务
   const loadTodayTasks = useCallback(async () => {
     if (!currentChild) return
     setLoading(true)
+    setError(false)
     try {
       const res = await fetch(`/api/tasks/today?childId=${currentChild.id}`)
       const data = await res.json()
@@ -82,6 +88,9 @@ export default function PlanPage() {
           pending: data.data.filter((t: { status: string }) => t.status === "PENDING").length,
         })
       }
+    } catch (err) {
+      console.error("加载今日任务失败:", err)
+      setError(true)
     } finally {
       setLoading(false)
     }
@@ -96,8 +105,8 @@ export default function PlanPage() {
       if (data.success) {
         setStats(data.data)
       }
-    } catch {
-      // 静默处理
+    } catch (err) {
+      console.error("加载打卡统计失败:", err)
     }
   }, [currentChild])
 
@@ -107,33 +116,25 @@ export default function PlanPage() {
     loadStats()
   }, [loadTodayTasks, loadStats])
 
-  // 完成任务
+  // 完成任务（API 调用已移至 store）
   const handleComplete = useCallback(
-    async (taskId: string) => {
-      const res = await fetch(`/api/tasks/${taskId}/complete`, { method: "PATCH" })
-      const data = await res.json()
-      if (!data.success) throw new Error(data.error?.message)
-
-      completeCurrent()
+    async (_taskId: string) => {
+      const result = await completeCurrent()
+      if (!result) throw new Error("没有可完成的任务")
       // 刷新统计
       loadStats()
-
       return {
-        points: data.data.point.amount,
-        encouragement: data.data.encouragement,
+        points: result.pointsEarned,
+        encouragement: result.encouragement,
       }
     },
     [completeCurrent, loadStats]
   )
 
-  // 跳过任务
+  // 跳过任务（API 调用已移至 store）
   const handleSkip = useCallback(
-    async (taskId: string) => {
-      const res = await fetch(`/api/tasks/${taskId}/skip`, { method: "PATCH" })
-      const data = await res.json()
-      if (!data.success) throw new Error(data.error?.message)
-
-      skipCurrent()
+    async (_taskId: string) => {
+      await skipCurrent()
     },
     [skipCurrent]
   )
@@ -159,6 +160,17 @@ export default function PlanPage() {
         <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-sm text-center">
           <Target size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
           <p className="text-gray-400 dark:text-gray-500 text-sm">请先添加孩子信息</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error && !loading) {
+    return (
+      <div className="px-4 py-6 max-w-lg md:max-w-2xl mx-auto">
+        <h1 className="text-xl md:text-2xl font-bold mb-4">训练计划</h1>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-sm text-center">
+          <p className="text-gray-500 dark:text-gray-400">数据加载失败，请刷新页面重试</p>
         </div>
       </div>
     )
@@ -250,7 +262,7 @@ export default function PlanPage() {
             <TrendingUp size={14} />
             本周统计
           </h2>
-          <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <StatCard
               icon={<Flame size={20} className="text-[#FF9800]" />}
               value={stats.streakDays}

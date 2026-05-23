@@ -10,6 +10,8 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import { ArrowLeft, Share2, TrendingUp, TrendingDown, Lightbulb, Trophy } from "lucide-react"
+import { useToast } from "@/hooks/useToast"
+import { SkeletonCard } from "@/components/ui/SkeletonCard"
 import { DIMENSION_CONFIG, getScoreColor, getScoreLabel } from "@/constants/dimensions"
 import { generateRadarData, generateReport, calculateScore } from "@/lib/scoring"
 import { useQuizStore } from "@/stores/useQuizStore"
@@ -33,6 +35,8 @@ export default function ReportPage() {
   const router = useRouter()
   const params = useParams()
   const id = params.id as string
+
+  const { success: showSuccess } = useToast()
 
   const [status, setStatus] = useState<PageStatus>("loading")
   const [assessment, setAssessment] = useState<AssessmentData | null>(null)
@@ -121,7 +125,7 @@ export default function ReportPage() {
     } else {
       // 复制链接
       navigator.clipboard.writeText(window.location.href)
-      alert("链接已复制到剪贴板")
+      showSuccess("链接已复制到剪贴板")
     }
   }
 
@@ -129,7 +133,7 @@ export default function ReportPage() {
   if (status === "loading") {
     return (
       <div className="px-4 py-6 max-w-lg mx-auto">
-        <p className="text-gray-400 text-center py-16">加载中...</p>
+        <SkeletonCard hasButton />
       </div>
     )
   }

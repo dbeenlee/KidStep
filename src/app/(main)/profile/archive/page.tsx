@@ -1,10 +1,12 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Plus, FileText, X } from "lucide-react"
+import { ArrowLeft, Plus, FileText, X, Camera, Image } from "lucide-react"
 import { useChildStore } from "@/stores/useChildStore"
+import { useToast } from "@/hooks/useToast"
 import { TimelineItem } from "@/components/business/TimelineItem"
+import GrowthPoster from "@/components/business/GrowthPoster"
 import dayjs from "dayjs"
 
 /** 里程碑数据类型 */
@@ -33,6 +35,7 @@ const milestoneTypes = [
 export default function ArchivePage() {
   const router = useRouter()
   const { currentChild } = useChildStore()
+  const { error: showError } = useToast()
 
   const [milestones, setMilestones] = useState<Milestone[]>([])
   const [monthGroups, setMonthGroups] = useState<MonthGroup[]>([])
@@ -40,6 +43,20 @@ export default function ArchivePage() {
   const [formType, setFormType] = useState("TEXT")
   const [formContent, setFormContent] = useState("")
   const [loading, setLoading] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [generatingPoster, setGeneratingPoster] = useState(false)
+  const [posterDataUrl, setPosterDataUrl] = useState<string | null>(null)
+  const [posterChild, setPosterChild] = useState<{ name: string; birthday: string; targetSchool?: string | null } | null>(null)
+  const [posterScores, setPosterScores] = useState<Record<string, number>>({})
+  const [posterPoints, setPosterPoints] = useState(0)
+  const [posterMilestones, setPosterMilestones] = useState<Array<{ content: string | null; createdAt: string }>>([])
+
+  // 照片相关状态
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [previewUrls, setPreviewUrls] = useState<string[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   /** 加载里程碑数据 */
   const loadMilestones = useCallback(async () => {
@@ -50,10 +67,11 @@ export default function ArchivePage() {
       if (data.success) {
         setMilestones(data.data)
       }
-    } catch {
-      // 静默处理
+    } catch (err) {
+      console.error("加载里程碑失败:", err)
+      showError("加载数据失败，请稍后重试")
     }
-  }, [currentChild])
+  }, [currentChild, showError])
 
   useEffect(() => {
     loadMilestones()
@@ -72,32 +90,123 @@ export default function ArchivePage() {
     )
   }, [milestones])
 
-  /** 添加里程碑 */
+  /** 选择文件 */
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    if (!files) return
+
+    const fileArray = Array.from(files)
+    setSelectedFiles(fileArray)
+
+    // 生成预览 URL
+    const urls = fileArray.map(file => URL.createObjectURL(file))
+    setPreviewUrls(urls)
+  }
+
+  /** 移除已选文件 */
+  function removeFile(index: number) {
+    // 释放预览 URL
+    URL.revokeObjectURL(previewUrls[index])
+
+    const newFiles = selectedFiles.filter((_, i) => i !== index)
+    const newUrls = previewUrls.filter((_, i) => i !== index)
+    setSelectedFiles(newFiles)
+    setPreviewUrls(newUrls)
+
+    // 清空 input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
+  /** 上传单个文件 */
+  async function uploadFile(file: File): Promise<string> {
+    const formData = new FormData()
+    formData.append("file", file)
+
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    })
+
+    const data = await res.json()
+    if (!data.success) {
+      throw new Error(data.error?.message ?? "上传失败")
+    }
+
+    return data.data.url
+  }
+
+  /** 提交表单 */
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
-    if (!currentChild || !formContent.trim()) return
+    if (!currentChild) return
+
+    // 照片类型必须选择文件
+    if (formType === "PHOTO" && selectedFiles.length === 0) {
+      return
+    }
+
+    // 文字类型必须有内容
+    if (formType !== "PHOTO" && !formContent.trim()) {
+      return
+    }
 
     setLoading(true)
+
     try {
+      let mediaUrls: string[] | null = null
+
+      // 如果是照片类型，先上传文件
+      if (formType === "PHOTO" && selectedFiles.length > 0) {
+        setUploading(true)
+        mediaUrls = []
+
+        for (let i = 0; i < selectedFiles.length; i++) {
+          const url = await uploadFile(selectedFiles[i])
+          mediaUrls.push(url)
+          setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100))
+        }
+
+        setUploading(false)
+      }
+
+      // 创建里程碑
       const res = await fetch("/api/milestones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           childId: currentChild.id,
           type: formType,
-          content: formContent.trim(),
+          content: formType === "PHOTO" ? (formContent.trim() || null) : formContent.trim(),
+          mediaUrls,
         }),
       })
+
       const data = await res.json()
       if (data.success) {
         setMilestones(prev => [data.data, ...prev])
-        setFormContent("")
-        setShowForm(false)
+        resetForm()
       }
-    } catch {
-      // 静默处理
+    } catch (err) {
+      console.error("保存里程碑失败:", err)
+      showError("保存失败，请稍后重试")
     } finally {
       setLoading(false)
+      setUploading(false)
+      setUploadProgress(0)
+    }
+  }
+
+  /** 重置表单 */
+  function resetForm() {
+    setFormContent("")
+    setSelectedFiles([])
+    previewUrls.forEach(url => URL.revokeObjectURL(url))
+    setPreviewUrls([])
+    setShowForm(false)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
     }
   }
 
@@ -113,9 +222,112 @@ export default function ArchivePage() {
       if (data.success) {
         setMilestones(prev => prev.filter(m => m.id !== id))
       }
-    } catch {
-      // 静默处理
+    } catch (err) {
+      console.error("删除里程碑失败:", err)
+      showError("删除失败，请稍后重试")
     }
+  }
+
+  /** 生成入学准备报告 PDF */
+  async function handleGenerateReport() {
+    if (!currentChild || generating) return
+
+    setGenerating(true)
+    try {
+      // 1. 获取报告数据
+      const res = await fetch(`/api/report?childId=${currentChild.id}`)
+      const result = await res.json()
+      if (!result.success) {
+        showError(result.error?.message ?? "获取报告数据失败")
+        return
+      }
+
+      // 2. 动态导入 PDF 组件（避免 SSR 问题）
+      const { pdf } = await import("@react-pdf/renderer")
+      const { GrowthReport } = await import("@/components/business/GrowthReport")
+
+      // 3. 生成 PDF blob
+      const blob = await pdf(
+        <GrowthReport data={result.data} />
+      ).toBlob()
+
+      // 4. 创建下载链接并触发下载
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      const dateStr = dayjs().format("YYYYMMDD")
+      link.href = url
+      link.download = `${currentChild.name}_入学准备报告_${dateStr}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error("生成报告失败:", err)
+      showError("生成报告失败，请稍后重试")
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  /** 生成成长海报 */
+  async function handleGeneratePoster() {
+    if (!currentChild || generatingPoster) return
+
+    setGeneratingPoster(true)
+    setPosterDataUrl(null)
+
+    try {
+      // 获取报告数据（包含评估分数、里程碑、积分）
+      const res = await fetch(`/api/report?childId=${currentChild.id}`)
+      const result = await res.json()
+      if (!result.success) {
+        showError(result.error?.message ?? "获取数据失败")
+        return
+      }
+
+      const { child: childInfo, assessments, milestones: ms, totalPoints } = result.data
+
+      // 构建维度分数映射
+      const scores: Record<string, number> = {}
+      for (const a of assessments) {
+        scores[a.dimension] = a.score
+      }
+
+      // 设置海报数据，GrowthPoster 组件渲染完成后会自动调用 onGenerated
+      setPosterChild(childInfo)
+      setPosterScores(scores)
+      setPosterPoints(totalPoints)
+      setPosterMilestones(ms.slice(0, 3))
+    } catch (err) {
+      console.error("生成海报失败:", err)
+      showError("生成海报失败，请稍后重试")
+    } finally {
+      setGeneratingPoster(false)
+    }
+  }
+
+  /** 海报生成完成回调 */
+  const handlePosterGenerated = useCallback((dataUrl: string) => {
+    setPosterDataUrl(dataUrl)
+    // 清空触发数据，避免重复渲染
+    setPosterChild(null)
+  }, [])
+
+  /** 下载海报图片 */
+  function handleDownloadPoster() {
+    if (!posterDataUrl || !currentChild) return
+    const link = document.createElement("a")
+    const dateStr = dayjs().format("YYYYMMDD")
+    link.href = posterDataUrl
+    link.download = `${currentChild.name}_成长海报_${dateStr}.png`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  /** 关闭海报预览 */
+  function handleClosePoster() {
+    setPosterDataUrl(null)
   }
 
   if (!currentChild) {
@@ -167,7 +379,7 @@ export default function ArchivePage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-medium">记录里程碑</h3>
             <button
-              onClick={() => setShowForm(false)}
+              onClick={resetForm}
               className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <X size={18} />
@@ -193,19 +405,78 @@ export default function ArchivePage() {
               ))}
             </div>
 
-            {/* 内容 */}
+            {/* 照片选择器（仅 PHOTO 类型显示） */}
+            {formType === "PHOTO" && (
+              <div className="space-y-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full h-20 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-[#4CAF50] hover:text-[#4CAF50] transition-colors"
+                >
+                  <Camera size={24} />
+                  <span className="text-xs">点击选择照片（可多选）</span>
+                </button>
+
+                {/* 预览已选图片 */}
+                {previewUrls.length > 0 && (
+                  <div className="flex gap-2 flex-wrap">
+                    {previewUrls.map((url, i) => (
+                      <div key={i} className="relative w-16 h-16">
+                        <img
+                          src={url}
+                          alt={`预览 ${i + 1}`}
+                          className="w-16 h-16 object-cover rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeFile(i)}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* 上传进度 */}
+                {uploading && (
+                  <div className="space-y-1">
+                    <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[#4CAF50] rounded-full transition-all"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 text-center">
+                      上传中 {uploadProgress}%
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 文字内容 */}
             <textarea
               value={formContent}
               onChange={e => setFormContent(e.target.value)}
-              placeholder="记录这个重要时刻..."
+              placeholder={formType === "PHOTO" ? "添加描述（可选）..." : "记录这个重要时刻..."}
               rows={3}
               className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm resize-none focus:outline-none focus:border-[#4CAF50] bg-transparent"
-              required
+              required={formType !== "PHOTO"}
             />
 
             <button
               type="submit"
-              disabled={loading || !formContent.trim()}
+              disabled={loading || (formType !== "PHOTO" && !formContent.trim()) || (formType === "PHOTO" && selectedFiles.length === 0)}
               className="w-full h-10 bg-[#4CAF50] text-white rounded-xl font-medium text-sm disabled:opacity-50 active:scale-[0.98] transition-transform"
             >
               {loading ? "保存中..." : "保存"}
@@ -243,13 +514,72 @@ export default function ArchivePage() {
         </div>
       )}
 
-      {/* 生成报告入口 */}
+      {/* 生成报告 & 海报入口 */}
       {milestones.length > 0 && (
-        <div className="mt-8">
-          <button className="w-full h-12 bg-[#FF9800] text-white rounded-xl font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
+        <div className="mt-8 space-y-3">
+          <button
+            onClick={handleGenerateReport}
+            disabled={generating}
+            className="w-full h-12 bg-[#FF9800] text-white rounded-xl font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
+          >
             <FileText size={18} />
-            生成入学准备报告
+            {generating ? "正在生成报告..." : "生成入学准备报告"}
           </button>
+          <button
+            onClick={handleGeneratePoster}
+            disabled={generatingPoster}
+            className="w-full h-12 bg-[#4CAF50] text-white rounded-xl font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
+          >
+            <Image size={18} />
+            {generatingPoster ? "正在生成海报..." : "生成成长海报"}
+          </button>
+        </div>
+      )}
+
+      {/* 隐藏的 GrowthPoster 组件，用于生成海报图片 */}
+      {posterChild && (
+        <GrowthPoster
+          child={posterChild}
+          scores={posterScores}
+          totalPoints={posterPoints}
+          milestones={posterMilestones}
+          onGenerated={handlePosterGenerated}
+        />
+      )}
+
+      {/* 海报预览模态框 */}
+      {posterDataUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+          onClick={handleClosePoster}
+        >
+          <div
+            className="relative max-w-sm w-full mx-4"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* 海报图片 */}
+            <img
+              src={posterDataUrl}
+              alt="成长海报"
+              className="w-full rounded-2xl shadow-2xl"
+            />
+
+            {/* 底部按钮 */}
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={handleDownloadPoster}
+                className="flex-1 h-12 bg-[#4CAF50] text-white rounded-xl font-medium active:scale-[0.98] transition-transform"
+              >
+                保存图片
+              </button>
+              <button
+                onClick={handleClosePoster}
+                className="flex-1 h-12 bg-white/20 text-white rounded-xl font-medium active:scale-[0.98] transition-transform"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

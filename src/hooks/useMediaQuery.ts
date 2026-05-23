@@ -6,8 +6,8 @@ import { useState, useEffect } from "react"
  * 媒体查询Hook
  * 用于响应式布局判断
  */
-export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false)
+export function useMediaQuery(query: string): boolean | null {
+  const [matches, setMatches] = useState<boolean | null>(null)
 
   useEffect(() => {
     const media = window.matchMedia(query)

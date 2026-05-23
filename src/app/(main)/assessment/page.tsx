@@ -1,9 +1,19 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import dynamic from "next/dynamic"
 import Link from "next/link"
-import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from "recharts"
 import { BarChart3, ChevronRight, Zap } from "lucide-react"
+
+/** 动态导入雷达图（减少首屏 JS） */
+const RadarChartSection = dynamic(
+  () => import("@/components/charts/RadarChartSection"),
+  {
+    loading: () => <div className="h-[220px] bg-gray-50 dark:bg-gray-800 rounded-lg animate-pulse" />,
+    ssr: false,
+  }
+)
+import { SkeletonCard } from "@/components/ui/SkeletonCard"
 import { DIMENSION_CONFIG, getScoreColor, getScoreLabel } from "@/constants/dimensions"
 import { generateRadarData } from "@/lib/scoring"
 import type { Dimension } from "@/types/assessment"
@@ -99,8 +109,14 @@ export default function AssessmentPage() {
   // 加载中
   if (status === "loading") {
     return (
-      <div className="px-4 py-6 max-w-lg md:max-w-2xl mx-auto">
-        <p className="text-gray-400 text-center py-16">加载中...</p>
+      <div className="px-4 py-6 max-w-lg md:max-w-2xl mx-auto space-y-4">
+        <SkeletonCard />
+        <div className="grid grid-cols-2 gap-3">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
       </div>
     )
   }
@@ -165,21 +181,7 @@ export default function AssessmentPage() {
       {hasRadarData && (
         <div className="bg-white dark:bg-gray-900 rounded-xl p-4 shadow-sm mb-6">
           <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">能力雷达图</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <RadarChart data={radarData}>
-              <PolarGrid stroke="#e5e7eb" />
-              <PolarAngleAxis
-                dataKey="dimension"
-                tick={{ fontSize: 12, fill: "#6b7280" }}
-              />
-              <Radar
-                dataKey="score"
-                stroke="#4CAF50"
-                fill="#4CAF50"
-                fillOpacity={0.25}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
+          <RadarChartSection data={radarData} />
         </div>
       )}
 

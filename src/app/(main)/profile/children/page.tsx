@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react"
 import { useChildStore } from "@/stores/useChildStore"
+import { useToast } from "@/hooks/useToast"
 import dayjs from "dayjs"
 
 /** 孩子表单数据 */
@@ -47,6 +48,8 @@ export default function ChildrenPage() {
     setCurrentChild,
   } = useChildStore()
 
+  const { error: showError } = useToast()
+
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<ChildFormData>(initialForm)
@@ -61,12 +64,13 @@ export default function ChildrenPage() {
         if (data.success) {
           setChildren(data.data)
         }
-      } catch {
-        // 静默处理
+      } catch (err) {
+        console.error("加载孩子列表失败:", err)
+        showError("加载数据失败，请稍后重试")
       }
     }
     loadChildren()
-  }, [setChildren])
+  }, [setChildren, showError])
 
   /** 重置表单 */
   function resetForm() {
@@ -133,8 +137,9 @@ export default function ChildrenPage() {
           resetForm()
         }
       }
-    } catch {
-      // 静默处理
+    } catch (err) {
+      console.error("保存孩子信息失败:", err)
+      showError("保存失败，请稍后重试")
     } finally {
       setLoading(false)
     }
@@ -154,8 +159,9 @@ export default function ChildrenPage() {
       if (data.success) {
         removeChild(childId)
       }
-    } catch {
-      // 静默处理
+    } catch (err) {
+      console.error("删除孩子失败:", err)
+      showError("删除失败，请稍后重试")
     }
   }
 

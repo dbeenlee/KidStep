@@ -4,7 +4,9 @@ import { useEffect, useState, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ArrowLeft, Heart, Share2, Eye, ChevronUp } from "lucide-react"
 import { marked } from "marked"
+import { useToast } from "@/hooks/useToast"
 import ArticleCard from "@/components/business/ArticleCard"
+import { SkeletonCard } from "@/components/ui/SkeletonCard"
 
 /** 文章分类映射 */
 const categoryMap: Record<string, { label: string; color: string }> = {
@@ -48,6 +50,8 @@ export default function ArticleDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
 
+  const { success: showSuccess, error: showError } = useToast()
+
   const [article, setArticle] = useState<ArticleDetail | null>(null)
   const [relatedArticles, setRelatedArticles] = useState<ArticleItem[]>([])
   const [isFavorited, setIsFavorited] = useState(false)
@@ -66,10 +70,13 @@ export default function ArticleDetailPage() {
         const raw = await marked(data.data.content)
         setHtmlContent(sanitizeHtml(raw as string))
       }
+    } catch (err) {
+      console.error("加载文章失败:", err)
+      showError("加载文章失败，请稍后重试")
     } finally {
       setLoading(false)
     }
-  }, [id])
+  }, [id, showError])
 
   /** 检查收藏状态 */
   const checkFavorite = useCallback(async () => {
@@ -142,7 +149,7 @@ export default function ArticleDetailPage() {
       }
     } else {
       await navigator.clipboard.writeText(window.location.href)
-      alert("链接已复制")
+      showSuccess("链接已复制")
     }
   }
 
@@ -154,7 +161,7 @@ export default function ArticleDetailPage() {
   if (loading) {
     return (
       <div className="px-4 py-6 max-w-lg mx-auto">
-        <div className="text-center text-gray-400 py-16">加载中...</div>
+        <SkeletonCard hasButton />
       </div>
     )
   }
