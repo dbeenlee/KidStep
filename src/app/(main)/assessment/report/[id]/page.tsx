@@ -11,6 +11,7 @@ import {
 } from "recharts"
 import { ArrowLeft, Share2, TrendingUp, TrendingDown, Lightbulb, Trophy } from "lucide-react"
 import { useToast } from "@/hooks/useToast"
+import { isWechatBrowser, setupWechatShareForReport } from "@/lib/wechat"
 import { SkeletonCard } from "@/components/ui/SkeletonCard"
 import { DIMENSION_CONFIG, getScoreColor, getScoreLabel } from "@/constants/dimensions"
 import { generateRadarData, calculateScore } from "@/lib/scoring"
@@ -116,6 +117,13 @@ export default function ReportPage() {
 
   /** 分享功能 */
   function handleShare() {
+    // 微信浏览器内配置微信分享
+    if (isWechatBrowser() && assessment) {
+      setupWechatShareForReport("孩子", assessment.score, dimConfig?.label ?? "能力")
+      showSuccess("请点击右上角分享")
+      return
+    }
+
     if (navigator.share) {
       navigator.share({
         title: "童行 - 能力评估报告",

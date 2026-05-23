@@ -39,7 +39,7 @@ function getAgeText(birthday: string): string {
 }
 
 export default function ProfilePage() {
-  const { currentChild, children, setChildren } = useChildStore()
+  const { currentChild, children, sharedChildren, setChildren, setSharedChildren } = useChildStore()
   const [totalPoints, setTotalPoints] = useState(0)
   const [error, setError] = useState(false)
 
@@ -47,10 +47,18 @@ export default function ProfilePage() {
   useEffect(() => {
     async function loadChildren() {
       try {
-        const res = await fetch("/api/children")
+        // 并行加载自己的孩子和共享孩子
+        const [res, sharedRes] = await Promise.all([
+          fetch("/api/children"),
+          fetch("/api/shared-children"),
+        ])
         const data = await res.json()
         if (data.success) {
           setChildren(data.data)
+        }
+        const sharedData = await sharedRes.json()
+        if (sharedData.success) {
+          setSharedChildren(sharedData.data)
         }
       } catch (err) {
         console.error("加载孩子列表失败:", err)
@@ -58,7 +66,7 @@ export default function ProfilePage() {
       }
     }
     loadChildren()
-  }, [setChildren])
+  }, [setChildren, setSharedChildren])
 
   /** 加载积分 */
   useEffect(() => {
@@ -129,6 +137,38 @@ export default function ProfilePage() {
               </div>
             </div>
           </Link>
+
+          {/* 共享孩子列表 */}
+          {sharedChildren.length > 0 && (
+            <div className="bg-white dark:bg-gray-900 rounded-xl p-4 shadow-sm mb-4">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">
+                家人共享的孩子
+              </h3>
+              <div className="space-y-2">
+                {sharedChildren.map(child => (
+                  <button
+                    key={child.id}
+                    onClick={() => useChildStore.getState().setCurrentChild(child)}
+                    className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${
+                      currentChild?.id === child.id
+                        ? "bg-[#4CAF50]/10"
+                        : "hover:bg-gray-50 dark:hover:bg-gray-800"
+                    }`}
+                  >
+                    <div className="w-8 h-8 bg-[#FF9800]/20 rounded-full flex items-center justify-center">
+                      <Baby size={16} className="text-[#FF9800]" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-medium">{child.name}</p>
+                      <p className="text-xs text-gray-400">
+                        {child.sharedBy?.nickname ?? "家人"} 分享
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 积分展示 */}
           {currentChild && (

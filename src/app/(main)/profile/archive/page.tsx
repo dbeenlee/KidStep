@@ -2,12 +2,13 @@
 
 import { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Plus, FileText, X, Camera, Image as ImageIcon } from "lucide-react"
+import { ArrowLeft, Plus, FileText, X, Camera, Image as ImageIcon, Share2 } from "lucide-react"
 import { useChildStore } from "@/stores/useChildStore"
 import { useToast } from "@/hooks/useToast"
 import { TimelineItem } from "@/components/business/TimelineItem"
 import GrowthPoster from "@/components/business/GrowthPoster"
 import { HomeworkRecognizer } from "@/components/business/HomeworkRecognizer"
+import { isWechatBrowser, setupWechatShareForPoster } from "@/lib/wechat"
 import { VoiceRecorder } from "@/components/ui/VoiceRecorder"
 import dayjs from "dayjs"
 
@@ -38,7 +39,7 @@ const milestoneTypes = [
 export default function ArchivePage() {
   const router = useRouter()
   const { currentChild } = useChildStore()
-  const { error: showError } = useToast()
+  const { success: showSuccess, error: showError } = useToast()
 
   const [milestones, setMilestones] = useState<Milestone[]>([])
   const [monthGroups, setMonthGroups] = useState<MonthGroup[]>([])
@@ -371,6 +372,54 @@ export default function ArchivePage() {
     document.body.removeChild(link)
   }
 
+  /** 分享海报图片 */
+  async function handleSharePoster() {
+    if (!posterDataUrl || !currentChild) return
+
+    // 微信浏览器内配置微信分享
+    if (isWechatBrowser()) {
+      setupWechatShareForPoster(currentChild.name)
+      showSuccess("请点击右上角分享")
+      return
+    }
+
+    // 将 DataURL 转为 File 对象
+    const res = await fetch(posterDataUrl)
+    const blob = await res.blob()
+    const file = new File([blob], `${currentChild.name}_成长海报.png`, { type: "image/png" })
+
+    // 优先使用 Web Share API
+    if (navigator.share && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          title: `${currentChild.name}的成长海报`,
+          text: `来看看${currentChild.name}在童行的成长记录！`,
+          files: [file],
+        })
+        return
+      } catch {
+        // 用户取消分享，不做处理
+      }
+    }
+
+    // 降级：复制到剪贴板
+    if (navigator.clipboard && typeof ClipboardItem !== "undefined") {
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({ "image/png": blob }),
+        ])
+        showSuccess("海报已复制到剪贴板")
+        return
+      } catch {
+        // 剪贴板不可用，降级到下载
+      }
+    }
+
+    // 最终降级：下载图片
+    handleDownloadPoster()
+    showSuccess("海报已保存，请手动分享")
+  }
+
   /** 关闭海报预览 */
   function handleClosePoster() {
     setPosterDataUrl(null)
@@ -642,6 +691,13 @@ export default function ArchivePage() {
 
             {/* 底部按钮 */}
             <div className="flex gap-3 mt-4">
+              <button
+                onClick={handleSharePoster}
+                className="flex-1 h-12 bg-[#FF9800] text-white rounded-xl font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+              >
+                <Share2 size={16} />
+                分享
+              </button>
               <button
                 onClick={handleDownloadPoster}
                 className="flex-1 h-12 bg-[#4CAF50] text-white rounded-xl font-medium active:scale-[0.98] transition-transform"
