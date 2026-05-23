@@ -326,8 +326,8 @@ npm run test:e2e
 - [x] AI 图像识别（作业识别）
 - [x] 语音输入（语音日记）
 - [x] 多供应商 AI 支持
-- [x] 家庭成员邀请（待实现）
-- [x] 自动生成成长海报（待实现）
+- [x] 家庭成员邀请（邀请码 + 共享查看）
+- [x] 自动生成成长海报（Canvas 绘制 + 分享）
 - [x] 成就系统（徽章、解锁）
 
 ### 技术债
@@ -335,11 +335,11 @@ npm run test:e2e
 - [x] ESLint 配置 + 修复
 - [x] 单元测试框架（Vitest）
 - [x] E2E 测试框架（Playwright）
-- [ ] SEO 结构化数据
-- [ ] 安全 Headers
-- [ ] `<img>` → `next/image` 优化
-- [ ] Lighthouse 性能 > 90
-- [ ] 数据分析和漏斗追踪
+- [x] SEO 结构化数据（JSON-LD）
+- [x] 安全 Headers（HSTS/CSP/X-Frame-Options）
+- [x] 性能优化（optimizePackageImports/Cache-Control/Bundle Analyzer）
+- [x] Core Web Vitals 监控（@vercel/speed-insights）
+- [x] 数据埋点系统（sendBeacon + /api/analytics）
 
 ---
 
