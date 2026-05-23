@@ -1,5 +1,5 @@
-const CACHE_NAME = "kidstep-v1"
-const STATIC_ASSETS = ["/", "/home"]
+const CACHE_NAME = "kidstep-v2"
+const STATIC_ASSETS = ["/"]
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -45,6 +45,9 @@ self.addEventListener("fetch", (event) => {
     )
     return
   }
+
+  // 只处理 http/https 请求，忽略 chrome-extension 等
+  if (url.protocol !== "http:" && url.protocol !== "https:") return
 
   // 静态资源：Cache-First
   event.respondWith(
