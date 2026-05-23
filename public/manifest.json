@@ -1,0 +1,22 @@
+{
+  "name": "童行 - 幼小衔接助手",
+  "short_name": "童行",
+  "description": "帮助幼儿园大班家长科学开展幼小衔接",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF8E1",
+  "theme_color": "#4CAF50",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
