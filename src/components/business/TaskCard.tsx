@@ -35,6 +35,8 @@ interface TaskCardProps {
   taskType: string
   /** 预计时长（分钟） */
   duration: number | null
+  /** 是否为弱项任务 */
+  isWeak?: boolean
   /** 完成回调 */
   onComplete: (taskId: string) => Promise<{ points: number; encouragement: string }>
   /** 跳过回调 */
@@ -47,6 +49,7 @@ export function TaskCard({
   description,
   taskType,
   duration,
+  isWeak = false,
   onComplete,
   onSkip,
 }: TaskCardProps) {
@@ -127,7 +130,14 @@ export function TaskCard({
   }
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm">
+    <div className="relative bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm overflow-hidden">
+      {/* 弱项角标 */}
+      {isWeak && (
+        <div className="absolute -right-8 top-4 bg-[#FF9800] text-white text-xs font-medium py-1 px-8 rotate-45 shadow-sm z-10">
+          针对弱项
+        </div>
+      )}
+
       {/* 类型标签 */}
       <div className="flex items-center gap-2 mb-4">
         <span

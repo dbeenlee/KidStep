@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { Suspense, useState, useEffect, useCallback, useMemo } from "react"
 import { Target, Flame, TrendingUp, Calendar, Trophy, Star } from "lucide-react"
 import { useTaskStore } from "@/stores/useTaskStore"
 import { useChildStore } from "@/stores/useChildStore"
 import { TaskCard } from "@/components/business/TaskCard"
 import { CalendarHeatmap } from "@/components/business/CalendarHeatmap"
+import { WeakAnalysis } from "@/components/business/WeakAnalysis"
 import { cn, randomItem } from "@/lib/utils"
 import { getCurrentPhase } from "@/lib/phaseCalculator"
 import { ENCOURAGEMENTS } from "@/constants/encouragements"
@@ -215,6 +216,11 @@ export default function PlanPage() {
           )
         })}
       </div>
+
+      {/* ==================== 弱项分析 ==================== */}
+      <Suspense fallback={<div className="h-40 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />}>
+        <WeakAnalysis childId={currentChild.id} />
+      </Suspense>
 
       {/* ==================== 今日任务（单任务模式） ==================== */}
       <section>
