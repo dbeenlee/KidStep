@@ -34,6 +34,9 @@ KidStep 是一款轻量级教练型工具，面向幼儿园大班家长。与课
 - **弱项推荐** — 智能识别能力短板，优先分配针对性任务
 - **AI 作业识别** — 拍照识别作业完成情况，AI 分析反馈
 - **语音录入** — 语音转文字记录成长日记
+- **多登录方式** — 邮箱密码、手机号验证码、微信扫码登录
+- **邮箱验证码** — 注册、找回密码、修改密码均支持邮箱验证码验证
+- **账号绑定** — 手机号/微信用户可绑定邮箱，邮箱用户可绑定微信
 
 ### 设计原则
 
@@ -54,7 +57,8 @@ KidStep 是一款轻量级教练型工具，面向幼儿园大班家长。与课
 | UI | React 18, Tailwind CSS 3, shadcn/ui 模式 |
 | 数据库 | SQLite (开发) / Supabase (生产) |
 | ORM | Prisma |
-| 认证 | NextAuth v5 (手机号 + 短信) |
+| 认证 | NextAuth v5 (邮箱密码 + 手机号验证码 + 微信扫码) |
+| 邮件服务 | Nodemailer (SMTP) |
 | 状态管理 | Zustand |
 | 图表 | Recharts |
 | 图标 | lucide-react |
@@ -99,10 +103,25 @@ npm run dev
 
 ### 开发模式登录
 
-开发模式下任意 6 位数字验证码即可登录：
+开发模式支持多种登录方式：
+
+**邮箱登录**
+1. 点击"注册"创建账号（任意 6 位数字验证码即可）
+2. 使用邮箱 + 密码登录
+
+**手机号登录**
 1. 输入任意 11 位手机号
 2. 输入任意 6 位验证码（如 `123456`）
 3. 点击登录
+
+**微信扫码登录**（需配置 WECHAT_OPEN_APPID）
+1. 点击"微信登录"
+2. 扫码授权
+
+**找回密码**
+1. 点击"忘记密码？"
+2. 输入邮箱 + 任意 6 位验证码
+3. 设置新密码
 
 ---
 
@@ -135,6 +154,7 @@ kidstep/
 │   │   ├── ai.ts              # AI 服务封装
 │   │   ├── auth.ts            # 认证工具
 │   │   ├── db.ts              # 数据库客户端
+│   │   ├── email.ts           # 邮件发送工具
 │   │   └── ...
 │   ├── stores/                # Zustand 状态管理
 │   ├── hooks/                 # 自定义 Hooks
@@ -239,11 +259,22 @@ DATABASE_URL="file:./dev.db"
 NEXTAUTH_SECRET="your-secret"
 NEXTAUTH_URL="http://localhost:3000"
 
-# 短信服务（生产环境）
-SMS_ACCESS_KEY_ID=""
-SMS_ACCESS_KEY_SECRET=""
-SMS_SIGN_NAME=""
-SMS_TEMPLATE_CODE=""
+# 短信服务（阿里云，可选）
+ALIYUN_SMS_ACCESS_KEY_ID=""
+ALIYUN_SMS_ACCESS_KEY_SECRET=""
+ALIYUN_SMS_SIGN_NAME="童行"
+ALIYUN_SMS_TEMPLATE_CODE=""
+
+# 微信登录（开放平台，可选）
+WECHAT_OPEN_APPID=""
+WECHAT_OPEN_APPSECRET=""
+
+# 邮件服务（SMTP，可选，开发模式下验证码通过 console.log 输出）
+SMTP_HOST=""
+SMTP_PORT="465"
+SMTP_USER=""
+SMTP_PASS=""
+SMTP_FROM="童行 <noreply@kidstep.app>"
 
 # AI 服务（可选）
 AI_API_KEY=""
@@ -260,6 +291,8 @@ AI_API_SECRET=""  # 百度云需要
 # 腾讯云:    AI_BASE_URL=https://hunyuan.tencentcloud.com  AI_MODEL=hunyuan-vision
 # 百度云:    AI_BASE_URL=https://aip.baidubce.com      AI_MODEL=ernie-4.0
 ```
+
+**功能开关**：登录页和设置页会根据 `.env` 配置动态显示/隐藏手机号和微信选项。未配置的服务不会显示给用户。
 
 ---
 
@@ -329,6 +362,16 @@ npm run test:e2e
 - [x] 家庭成员邀请（邀请码 + 共享查看）
 - [x] 自动生成成长海报（Canvas 绘制 + 分享）
 - [x] 成就系统（徽章、解锁）
+
+### v1.3 - 账号体系 ✅
+
+- [x] 邮箱 + 密码登录
+- [x] 微信扫码登录
+- [x] 邮箱验证码（注册/找回密码/修改密码）
+- [x] 账号绑定（手机号/微信/邮箱互相绑定）
+- [x] 动态功能开关（根据 .env 配置显示/隐藏登录方式）
+- [x] 数据预加载（主布局自动加载孩子数据）
+- [x] Edge Runtime 兼容（middleware 优化）
 
 ### 技术债
 
