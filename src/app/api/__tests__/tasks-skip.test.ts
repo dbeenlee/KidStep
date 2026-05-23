@@ -19,6 +19,25 @@ import { PATCH } from "@/app/api/tasks/[id]/skip/route"
 
 const mockSession = { user: { id: "user-1" } }
 
+function createMockTask(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "task-1",
+    childId: "child-1",
+    title: "练习写字",
+    status: "PENDING",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    phase: "PHASE_1",
+    taskType: "HABIT",
+    templateId: "tpl-1",
+    description: null,
+    duration: 10,
+    scheduledDate: new Date(),
+    completedAt: null,
+    ...overrides,
+  }
+}
+
 describe("PATCH /api/tasks/:id/skip", () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -51,12 +70,7 @@ describe("PATCH /api/tasks/:id/skip", () => {
 
   it("状态非 PENDING 返回 400", async () => {
     vi.mocked(auth as () => Promise<unknown>).mockResolvedValue(mockSession)
-    vi.mocked(db.task.findFirst).mockResolvedValue({
-      id: "task-1",
-      childId: "child-1",
-      title: "测试任务",
-      status: "COMPLETED",
-    })
+    vi.mocked(db.task.findFirst).mockResolvedValue(createMockTask({ status: "COMPLETED" }))
 
     const req = new Request("http://localhost:3000/api/tasks/task-1/skip", {
       method: "PATCH",
@@ -70,16 +84,8 @@ describe("PATCH /api/tasks/:id/skip", () => {
   it("成功跳过 PENDING 任务返回更新后的任务", async () => {
     vi.mocked(auth as () => Promise<unknown>).mockResolvedValue(mockSession)
 
-    const mockTask = {
-      id: "task-1",
-      childId: "child-1",
-      title: "练习写字",
-      status: "PENDING",
-    }
-    const mockUpdatedTask = {
-      ...mockTask,
-      status: "SKIPPED",
-    }
+    const mockTask = createMockTask()
+    const mockUpdatedTask = createMockTask({ status: "SKIPPED" })
 
     vi.mocked(db.task.findFirst).mockResolvedValue(mockTask)
     vi.mocked(db.task.update).mockResolvedValue(mockUpdatedTask)

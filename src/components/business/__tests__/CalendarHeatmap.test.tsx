@@ -4,9 +4,9 @@ import userEvent from "@testing-library/user-event"
 import { CalendarHeatmap } from "../CalendarHeatmap"
 
 const mockDays = [
-  { date: "2026-05-01", completedCount: 2, totalCount: 3, status: "partial" },
-  { date: "2026-05-02", completedCount: 3, totalCount: 3, status: "full" },
-  { date: "2026-05-03", completedCount: 0, totalCount: 0, status: "noTask" },
+  { date: "2026-05-01", completedCount: 2, totalCount: 3, status: "partial" as const },
+  { date: "2026-05-02", completedCount: 3, totalCount: 3, status: "full" as const },
+  { date: "2026-05-03", completedCount: 0, totalCount: 0, status: "noTask" as const },
 ]
 
 function createMockFetchMonth(days = mockDays) {

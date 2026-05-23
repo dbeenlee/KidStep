@@ -20,7 +20,16 @@ import { db } from "@/lib/db"
 import { GET } from "@/app/api/tasks/stats/route"
 
 const mockSession = { user: { id: "user-1" } }
-const mockChild = { id: "child-1", userId: "user-1" }
+const mockChild = {
+  id: "child-1",
+  userId: "user-1",
+  name: "小明",
+  birthday: new Date("2020-06-15"),
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  gender: "male",
+  targetSchool: null,
+}
 
 describe("GET /api/tasks/stats", () => {
   beforeEach(() => {

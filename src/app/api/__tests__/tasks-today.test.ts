@@ -37,7 +37,16 @@ import { generateDailyTasks, findWeakDimensions } from "@/lib/taskGenerator"
 import { GET } from "@/app/api/tasks/today/route"
 
 const mockSession = { user: { id: "user-1" } }
-const mockChild = { id: "child-1", userId: "user-1", birthday: "2020-06-15" }
+const mockChild = {
+  id: "child-1",
+  userId: "user-1",
+  name: "小明",
+  birthday: new Date("2020-06-15"),
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  gender: "male",
+  targetSchool: null,
+}
 
 describe("GET /api/tasks/today", () => {
   beforeEach(() => {
@@ -80,8 +89,8 @@ describe("GET /api/tasks/today", () => {
     vi.mocked(db.child.findFirst).mockResolvedValue(mockChild)
 
     const mockTasks = [
-      { id: "task-1", childId: "child-1", title: "练习写字", status: "PENDING" },
-      { id: "task-2", childId: "child-1", title: "整理书包", status: "PENDING" },
+      { id: "task-1", childId: "child-1", title: "练习写字", status: "PENDING", createdAt: new Date(), updatedAt: new Date(), phase: "PHASE_1", taskType: "HABIT", templateId: "tpl-1", description: null, duration: 10, scheduledDate: new Date(), completedAt: null },
+      { id: "task-2", childId: "child-1", title: "整理书包", status: "PENDING", createdAt: new Date(), updatedAt: new Date(), phase: "PHASE_1", taskType: "LIFE", templateId: "tpl-2", description: null, duration: 15, scheduledDate: new Date(), completedAt: null },
     ]
     vi.mocked(db.task.findMany).mockResolvedValue(mockTasks)
 
@@ -110,8 +119,8 @@ describe("GET /api/tasks/today", () => {
     const mockGeneratedTasks = [
       {
         childId: "child-1",
-        phase: "PHASE_1",
-        taskType: "HABIT",
+        phase: "PHASE_1" as const,
+        taskType: "HABIT" as const,
         templateId: "tpl-1",
         title: "整理玩具",
         description: "把玩具放回原位",
@@ -152,7 +161,7 @@ describe("GET /api/tasks/today", () => {
     expect(data.data[0].title).toBe("整理玩具")
 
     // 验证生成流程被正确调用
-    expect(getCurrentPhase).toHaveBeenCalledWith("2020-06-15")
+    expect(getCurrentPhase).toHaveBeenCalledWith(mockChild.birthday)
     expect(findWeakDimensions).toHaveBeenCalledWith(mockAssessments)
     expect(generateDailyTasks).toHaveBeenCalledWith({
       childId: "child-1",

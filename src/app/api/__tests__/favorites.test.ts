@@ -39,8 +39,7 @@ describe("GET /api/favorites", () => {
 
   it("未授权返回 401", async () => {
     vi.mocked(auth as () => Promise<unknown>).mockResolvedValue(null)
-    const req = new Request("http://localhost:3000/api/favorites")
-    const res = await GET(req)
+    const res = await GET()
     expect(res.status).toBe(401)
   })
 
@@ -51,8 +50,7 @@ describe("GET /api/favorites", () => {
     ]
     vi.mocked(db.favorite.findMany).mockResolvedValue(mockFavorites as never)
 
-    const req = new Request("http://localhost:3000/api/favorites")
-    const res = await GET(req)
+    const res = await GET()
     const data = await res.json()
 
     expect(res.status).toBe(200)
