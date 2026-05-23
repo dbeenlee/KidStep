@@ -118,7 +118,7 @@ export default function PlanPage() {
 
   // 完成任务（API 调用已移至 store）
   const handleComplete = useCallback(
-    async (_taskId: string) => {
+    async (_taskId: string): Promise<{ points: number; encouragement: string }> => {
       const result = await completeCurrent()
       if (!result) throw new Error("没有可完成的任务")
       // 刷新统计
@@ -133,7 +133,7 @@ export default function PlanPage() {
 
   // 跳过任务（API 调用已移至 store）
   const handleSkip = useCallback(
-    async (_taskId: string) => {
+    async (_taskId: string): Promise<void> => {
       await skipCurrent()
     },
     [skipCurrent]

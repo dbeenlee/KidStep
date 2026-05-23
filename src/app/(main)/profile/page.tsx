@@ -75,7 +75,7 @@ export default function ProfilePage() {
       }
     }
     loadPoints()
-  }, [currentChild?.id])
+  }, [currentChild])
 
   if (error) {
     return (

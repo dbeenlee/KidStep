@@ -8,7 +8,6 @@ import Image from "next/image"
 export default function LoginPage() {
   const [phone, setPhone] = useState("")
   const [code, setCode] = useState("")
-  const [codeSent, setCodeSent] = useState(false)
   const [countdown, setCountdown] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -21,7 +20,6 @@ export default function LoginPage() {
     }
     setError("")
     // 开发模式：提示任意验证码
-    setCodeSent(true)
     setCountdown(60)
     const timer = setInterval(() => {
       setCountdown(prev => {

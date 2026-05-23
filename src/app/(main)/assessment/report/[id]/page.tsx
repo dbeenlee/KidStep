@@ -13,7 +13,7 @@ import { ArrowLeft, Share2, TrendingUp, TrendingDown, Lightbulb, Trophy } from "
 import { useToast } from "@/hooks/useToast"
 import { SkeletonCard } from "@/components/ui/SkeletonCard"
 import { DIMENSION_CONFIG, getScoreColor, getScoreLabel } from "@/constants/dimensions"
-import { generateRadarData, generateReport, calculateScore } from "@/lib/scoring"
+import { generateRadarData, calculateScore } from "@/lib/scoring"
 import { useQuizStore } from "@/stores/useQuizStore"
 import type { Dimension, QuizAnswer, AssessmentReport } from "@/types/assessment"
 

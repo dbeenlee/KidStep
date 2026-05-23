@@ -127,7 +127,7 @@ export default function PointsPage() {
         setLoading(false)
       }
     },
-    [currentChild, activeSource]
+    [currentChild, showError]
   )
 
   /** 切换来源筛选 */

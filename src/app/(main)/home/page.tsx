@@ -83,7 +83,7 @@ export default function HomePage() {
         >
           <p className="font-medium text-sm">幼小衔接到底是什么？</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
-            "零起点"不等于"零准备"，了解核心理念，建立正确认知...
+            &ldquo;零起点&rdquo;不等于&ldquo;零准备&rdquo;，了解核心理念，建立正确认知...
           </p>
         </a>
       </section>

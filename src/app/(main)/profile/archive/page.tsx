@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Plus, FileText, X, Camera, Image } from "lucide-react"
+import { ArrowLeft, Plus, FileText, X, Camera, Image as ImageIcon } from "lucide-react"
 import { useChildStore } from "@/stores/useChildStore"
 import { useToast } from "@/hooks/useToast"
 import { TimelineItem } from "@/components/business/TimelineItem"
@@ -530,7 +530,7 @@ export default function ArchivePage() {
             disabled={generatingPoster}
             className="w-full h-12 bg-[#4CAF50] text-white rounded-xl font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
           >
-            <Image size={18} />
+            <ImageIcon size={18} />
             {generatingPoster ? "正在生成海报..." : "生成成长海报"}
           </button>
         </div>
