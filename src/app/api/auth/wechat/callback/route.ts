@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 
 const WECHAT_APPID = process.env.WECHAT_OPEN_APPID ?? ""
@@ -7,13 +8,15 @@ const WECHAT_SECRET = process.env.WECHAT_OPEN_APPSECRET ?? ""
 /**
  * GET /api/auth/wechat/callback
  *
- * 双重角色：
- * 1. 无 code 参数 → 重定向到微信授权页（入口）
- * 2. 有 code 参数 → 换取 token → 获取用户 → 写入 session cookie
+ * 三重角色：
+ * 1. 无 code → 重定向到微信授权页（登录入口）
+ * 2. 有 code + 无 bind → 换取 token → 登录
+ * 3. 有 code + bind=1 → 换取 token → 绑定到当前用户
  */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get("code")
+  const isBind = searchParams.get("bind") === "1"
 
   // 场景 1：无 code，重定向到微信授权页
   if (!code) {
@@ -24,37 +27,25 @@ export async function GET(request: Request) {
     const redirectUri = `${origin}/api/auth/wechat/callback`
     const state = crypto.randomUUID()
 
-    const wechatUrl = new URL("https://open.weixin.qq.com/connect/qrconnect")
-    wechatUrl.searchParams.set("appid", WECHAT_APPID)
-    wechatUrl.searchParams.set("redirect_uri", redirectUri)
-    wechatUrl.searchParams.set("response_type", "code")
-    wechatUrl.searchParams.set("scope", "snsapi_login")
-    wechatUrl.searchParams.set("state", state)
-    // 必须带 #wechat_redirect
-    wechatUrl.hash = "wechat_redirect"
-
-    // 微信要求 redirect_uri URL 编码，用拼接方式处理 hash
     const finalUrl = `https://open.weixin.qq.com/connect/qrconnect?appid=${WECHAT_APPID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=snsapi_login&state=${state}#wechat_redirect`
 
     return NextResponse.redirect(finalUrl)
   }
 
-  // 场景 2：有 code，换取 token 并登录
+  // 场景 2/3：有 code，换取 token
   try {
-    // 用 code 换取 access_token + openid
     const tokenUrl = `https://api.weixin.qq.com/sns/oauth2/access_token?appid=${WECHAT_APPID}&secret=${WECHAT_SECRET}&code=${code}&grant_type=authorization_code`
     const tokenRes = await fetch(tokenUrl)
     const tokenData = await tokenRes.json()
 
     if (tokenData.errcode) {
-      return NextResponse.redirect(`${origin}/login?error=wechat_token_failed`)
+      const redirect = isBind ? "/profile/settings?error=wechat_bind_failed" : "/login?error=wechat_token_failed"
+      return NextResponse.redirect(`${origin}${redirect}`)
     }
 
     const { access_token, openid } = tokenData as {
       access_token: string
       openid: string
-      refresh_token: string
-      expires_in: number
     }
 
     // 获取用户信息
@@ -63,16 +54,40 @@ export async function GET(request: Request) {
     const userInfo = await userInfoRes.json()
 
     if (userInfo.errcode) {
-      return NextResponse.redirect(`${origin}/login?error=wechat_userinfo_failed`)
+      const redirect = isBind ? "/profile/settings?error=wechat_bind_failed" : "/login?error=wechat_userinfo_failed"
+      return NextResponse.redirect(`${origin}${redirect}`)
     }
 
     const { nickname, headimgurl } = userInfo as {
       nickname: string
       headimgurl: string
-      openid: string
     }
 
-    // 根据 openid 查找或创建用户
+    // 场景 3：绑定到当前登录用户
+    if (isBind) {
+      const session = await auth()
+      if (!session?.user?.id) {
+        return NextResponse.redirect(`${origin}/login`)
+      }
+
+      // 检查该 openid 是否已被其他用户绑定
+      const existingUser = await db.user.findUnique({
+        where: { wechatOpenid: openid },
+      })
+      if (existingUser && existingUser.id !== session.user.id) {
+        return NextResponse.redirect(`${origin}/profile/settings?error=wechat_already_bound`)
+      }
+
+      // 绑定到当前用户
+      await db.user.update({
+        where: { id: session.user.id },
+        data: { wechatOpenid: openid },
+      })
+
+      return NextResponse.redirect(`${origin}/profile/settings?success=wechat_bound`)
+    }
+
+    // 场景 2：登录
     let user = await db.user.findUnique({
       where: { wechatOpenid: openid },
     })
@@ -96,18 +111,18 @@ export async function GET(request: Request) {
       salt: "next-auth.session-token",
     })
 
-    // 设置 NextAuth session cookie 并重定向
     const response = NextResponse.redirect(`${origin}/home`)
     response.cookies.set("next-auth.session-token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 30 * 24 * 60 * 60, // 30 天
+      maxAge: 30 * 24 * 60 * 60,
     })
 
     return response
   } catch {
-    return NextResponse.redirect(`${origin}/login?error=wechat_failed`)
+    const redirect = isBind ? "/profile/settings?error=wechat_bind_failed" : "/login?error=wechat_failed"
+    return NextResponse.redirect(`${origin}${redirect}`)
   }
 }
