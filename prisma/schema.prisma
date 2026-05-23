@@ -17,6 +17,7 @@ model User {
   phone        String?  @unique
   email        String?  @unique
   passwordHash String?  @map("password_hash")
+  wechatOpenid String?  @unique @map("wechat_openid")
   nickname     String?
   avatar       String?
   createdAt    DateTime @default(now()) @map("created_at")
