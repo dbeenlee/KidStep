@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import {
   Clock,
   Repeat,
@@ -54,6 +54,16 @@ export function TaskCard({
   const [earnedPoints, setEarnedPoints] = useState(0)
   const [encouragement, setEncouragement] = useState("")
   const [showConfetti, setShowConfetti] = useState(false)
+  const [floatingPoints, setFloatingPoints] = useState(0)
+  const [showFloatingPoints, setShowFloatingPoints] = useState(false)
+  const timeoutRef = useRef<NodeJS.Timeout>()
+
+  // 组件卸载时清除未完成的定时器
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    }
+  }, [])
 
   const typeConfig = TASK_TYPE_CONFIG[taskType] ?? TASK_TYPE_CONFIG.HABIT
   const TypeIcon = typeConfig.icon
@@ -73,7 +83,16 @@ export function TaskCard({
       const result = await onComplete(id)
       setEarnedPoints(result.points)
       setEncouragement(result.encouragement)
-      setStatus("done")
+
+      // 显示浮动积分动画
+      setFloatingPoints(result.points)
+      setShowFloatingPoints(true)
+
+      // 动画结束后切换到完成状态
+      timeoutRef.current = setTimeout(() => {
+        setShowFloatingPoints(false)
+        setStatus("done")
+      }, 800)
     } catch {
       setStatus("idle")
     }
@@ -134,22 +153,33 @@ export function TaskCard({
 
       {/* 操作按钮 */}
       <div className="flex gap-3">
-        <button
-          onClick={handleComplete}
-          disabled={status === "completing" || status === "skipping"}
-          className={cn(
-            "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all",
-            "bg-[#4CAF50] text-white hover:bg-[#4CAF50]/90 active:scale-[0.98]",
-            status === "completing" && "opacity-70"
+        <div className="flex-1 relative">
+          {/* 浮动积分动画 */}
+          {showFloatingPoints && (
+            <span className="absolute left-1/2 -top-6 -translate-x-1/2 text-sm font-bold text-[#FF9800] animate-points z-10 whitespace-nowrap">
+              +{floatingPoints}
+            </span>
           )}
-        >
-          <CheckCircle2 size={18} />
-          {status === "completing" ? "完成中..." : "完成任务"}
-        </button>
+          <button
+            onClick={handleComplete}
+            disabled={status === "completing" || status === "skipping"}
+            aria-label="完成任务"
+            aria-busy={status === "completing"}
+            className={cn(
+              "w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all",
+              "bg-[#4CAF50] text-white hover:bg-[#4CAF50]/90 active:scale-[0.98]",
+              status === "completing" && "opacity-70"
+            )}
+          >
+            <CheckCircle2 size={18} />
+            {status === "completing" ? "完成中..." : "完成任务"}
+          </button>
+        </div>
 
         <button
           onClick={handleSkip}
           disabled={status === "completing" || status === "skipping"}
+          aria-label="跳过任务"
           className={cn(
             "flex items-center justify-center gap-1 px-4 py-3 rounded-xl text-sm font-medium transition-all",
             "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 active:scale-[0.98]",

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server"
+import dayjs from "dayjs"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { QUESTIONS } from "@/constants/questions"
+import { getCurrentPhase } from "@/lib/phaseCalculator"
+import { generateDailyTasks, findWeakDimensions } from "@/lib/taskGenerator"
 
 /** GET /api/tasks/today?childId=x - 今日任务 */
 export async function GET(request: Request) {
@@ -23,10 +25,21 @@ export async function GET(request: Request) {
     )
   }
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  // 验证孩子归属
+  const child = await db.child.findFirst({
+    where: { id: childId, userId: session.user.id },
+  })
 
-  // 查询今日已有的任务
+  if (!child) {
+    return NextResponse.json(
+      { success: false, error: { code: "NOT_FOUND", message: "未找到该孩子信息" } },
+      { status: 404 }
+    )
+  }
+
+  const today = dayjs().startOf("day").toDate()
+
+  // 查询今天已有的任务
   let tasks = await db.task.findMany({
     where: {
       childId,
@@ -35,38 +48,54 @@ export async function GET(request: Request) {
     orderBy: { createdAt: "asc" },
   })
 
-  // 如果今日没有任务，自动生成
+  // 如果今天没有任务，智能生成（并发双重检查，防止重复生成）
   if (tasks.length === 0) {
-    // 获取最近评估的薄弱项
-    const latestAssessment = await db.assessment.findFirst({
-      where: { childId },
-      orderBy: { createdAt: "desc" },
-    })
+    const phase = getCurrentPhase(child.birthday)
 
-    // 使用默认任务模板（实际应从 constants/taskTemplates 导入）
-    const defaultTasks = [
-      { templateId: "habit-001", title: "早起打卡", description: "7:00前起床，自己穿衣服", type: "HABIT", duration: 1 },
-      { templateId: "habit-002", title: "阅读打卡", description: "亲子共读一本绘本，至少15分钟", type: "HABIT", duration: 15 },
-      { templateId: "habit-003", title: "运动打卡", description: "户外运动30分钟", type: "HABIT", duration: 30 },
-    ]
+    if (phase) {
+      // 重新检查是否已被其他并发请求生成
+      const existing = await db.task.findMany({
+        where: { childId, scheduledDate: today },
+      })
+      if (existing.length > 0) {
+        return NextResponse.json({ success: true, data: existing })
+      }
+      // 获取最新评估结果，识别薄弱维度
+      const latestAssessments = await db.assessment.findMany({
+        where: { childId },
+        orderBy: { createdAt: "desc" },
+        take: 4,
+        select: { dimension: true, score: true },
+      })
 
-    const created = await Promise.all(
-      defaultTasks.map(t =>
-        db.task.create({
-          data: {
-            childId,
-            phase: "PHASE_1",
-            taskType: t.type as never,
-            templateId: t.templateId,
-            title: t.title,
-            description: t.description,
-            duration: t.duration,
-            scheduledDate: today,
-          },
+      const weakDimensions = findWeakDimensions(latestAssessments)
+
+      // 获取近 7 天已用模板 ID
+      const weekAgo = dayjs().subtract(7, "day").startOf("day").toDate()
+      const recentTasks = await db.task.findMany({
+        where: { childId, scheduledDate: { gte: weekAgo } },
+        select: { templateId: true },
+      })
+      const recentTemplateIds = recentTasks.map(t => t.templateId)
+
+      // 智能生成任务
+      const generatedTasks = generateDailyTasks({
+        childId,
+        phase,
+        weakDimensions,
+        recentTemplateIds,
+        existingTemplateIds: [],
+      })
+
+      // 批量创建
+      if (generatedTasks.length > 0) {
+        await db.task.createMany({ data: generatedTasks })
+        tasks = await db.task.findMany({
+          where: { childId, scheduledDate: today },
+          orderBy: { createdAt: "asc" },
         })
-      )
-    )
-    tasks = created
+      }
+    }
   }
 
   return NextResponse.json({ success: true, data: tasks })

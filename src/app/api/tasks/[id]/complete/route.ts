@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { randomItem } from "@/lib/utils"
 import { ENCOURAGEMENTS } from "@/constants/encouragements"
+import { calculateStreak, calculateTaskPoints } from "@/lib/streakCalculator"
 
 /** PATCH /api/tasks/:id/complete - 标记任务完成 */
 export async function PATCH(
@@ -18,90 +19,97 @@ export async function PATCH(
   }
 
   const taskId = params.id
-
-  // 查找任务并验证归属
-  const task = await db.task.findFirst({
-    where: {
-      id: taskId,
-      child: { userId: session.user.id },
-    },
-    include: { child: true },
-  })
-
-  if (!task) {
-    return NextResponse.json(
-      { success: false, error: { code: "NOT_FOUND", message: "任务不存在" } },
-      { status: 404 }
-    )
-  }
-
-  if (task.status !== "PENDING") {
-    return NextResponse.json(
-      { success: false, error: { code: "INVALID_STATUS", message: "任务状态不允许此操作" } },
-      { status: 400 }
-    )
-  }
-
+  const userId = session.user.id
   const now = new Date()
 
-  // 计算积分：基础2分 + 连续奖励
-  const completedTasks = await db.task.findMany({
-    where: {
-      childId: task.childId,
-      status: "COMPLETED",
-    },
-    select: { scheduledDate: true },
-    distinct: ["scheduledDate"],
-    orderBy: { scheduledDate: "desc" },
-  })
+  // 使用交互式事务，将状态检查放在事务内部，防止并发重复完成
+  const result = await db.$transaction(async (tx) => {
+    const task = await tx.task.findFirst({
+      where: {
+        id: taskId,
+        child: { userId },
+      },
+    })
 
-  let streak = 0
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const current = new Date(today)
-  for (const t of completedTasks) {
-    const taskDate = new Date(t.scheduledDate)
-    taskDate.setHours(0, 0, 0, 0)
-    const diffDays = Math.floor(
-      (current.getTime() - taskDate.getTime()) / (1000 * 60 * 60 * 24)
-    )
-    if (diffDays === streak) {
-      streak++
-    } else {
-      break
+    if (!task) {
+      return { error: "NOT_FOUND" as const }
     }
-  }
 
-  const basePoints = 2
-  const bonusPoints = Math.min(streak, 7)
-  const totalPoints = basePoints + bonusPoints
+    if (task.status !== "PENDING") {
+      return { error: "INVALID_STATUS" as const }
+    }
 
-  // 事务：更新任务状态 + 发放积分
-  const [updatedTask, point] = await db.$transaction([
-    db.task.update({
+    // 先更新任务状态为完成，这样后续查询 completedTasks 才能包含本任务
+    const updatedTask = await tx.task.update({
       where: { id: taskId },
       data: {
         status: "COMPLETED",
         completedAt: now,
       },
-    }),
-    db.point.create({
+    })
+
+    // 计算积分：基础2分 + 连续奖励
+    const completedTasks = await tx.task.findMany({
+      where: {
+        childId: task.childId,
+        status: "COMPLETED",
+      },
+      select: { scheduledDate: true },
+      distinct: ["scheduledDate"],
+      orderBy: { scheduledDate: "desc" },
+    })
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const streak = calculateStreak(
+      completedTasks.map((t) => ({ date: t.scheduledDate })),
+      today
+    )
+    const { base: basePoints, bonus: bonusPoints, total: totalPoints } = calculateTaskPoints(streak)
+
+    const point = await tx.point.create({
       data: {
         childId: task.childId,
         amount: totalPoints,
         reason: bonusPoints > 0
           ? `完成任务「${task.title}」+${basePoints}，连续${streak}天 +${bonusPoints}`
           : `完成任务「${task.title}」+${basePoints}`,
-        source: "TASK",
+        source: "TASK_COMPLETE",
       },
-    }),
-  ])
+    })
+
+    return { task: updatedTask, point, error: null }
+  })
+
+  if (result.error === "NOT_FOUND") {
+    return NextResponse.json(
+      { success: false, error: { code: "NOT_FOUND", message: "任务不存在" } },
+      { status: 404 }
+    )
+  }
+
+  if (result.error === "INVALID_STATUS") {
+    return NextResponse.json(
+      { success: false, error: { code: "INVALID_STATUS", message: "任务状态不允许此操作" } },
+      { status: 400 }
+    )
+  }
+
+  // 触发成就检查（不阻塞主流程）
+  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000"
+  fetch(`${baseUrl}/api/achievements/check`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ childId: result.task.childId, event: "task_complete" }),
+  }).catch(() => {
+    // 静默处理，不影响主流程
+  })
 
   return NextResponse.json({
     success: true,
     data: {
-      task: updatedTask,
-      point,
+      task: result.task,
+      point: result.point,
       encouragement: randomItem([...ENCOURAGEMENTS.taskComplete]),
     },
   })

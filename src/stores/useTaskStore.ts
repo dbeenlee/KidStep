@@ -10,6 +10,12 @@ interface TaskItem {
   status: string
 }
 
+/** 完成任务的返回结果 */
+interface CompleteResult {
+  pointsEarned: number
+  encouragement: string
+}
+
 interface TaskStore {
   /** 任务队列 */
   queue: TaskItem[]
@@ -24,13 +30,15 @@ interface TaskStore {
   currentTask: TaskItem | null
   /** 是否全部完成 */
   allDone: boolean
+  /** 操作锁，防止重复提交 */
+  busy: boolean
 
   /** 初始化任务队列 */
   initQueue: (tasks: TaskItem[]) => void
-  /** 完成当前任务 */
-  completeCurrent: () => void
-  /** 跳过当前任务 */
-  skipCurrent: () => void
+  /** 完成当前任务（调用 API + 推进索引） */
+  completeCurrent: () => Promise<CompleteResult | null>
+  /** 跳过当前任务（调用 API + 推进索引） */
+  skipCurrent: () => Promise<void>
   /** 更新汇总 */
   updateSummary: (summary: TodaySummary) => void
 }
@@ -42,6 +50,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   summary: { total: 0, completed: 0, skipped: 0, pending: 0 },
   currentTask: null,
   allDone: false,
+  busy: false,
 
   initQueue: tasks => {
     const pending = tasks.filter(t => t.status === "PENDING")
@@ -54,38 +63,69 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     })
   },
 
-  completeCurrent: () => {
+  completeCurrent: async () => {
+    if (get().busy) return null
     const { queue, currentIndex, summary } = get()
-    const nextIndex = currentIndex + 1
-    const newSummary = {
-      ...summary,
-      completed: summary.completed + 1,
-      pending: summary.pending - 1,
+    const currentTask = queue[currentIndex]
+    if (!currentTask) return null
+
+    set({ busy: true })
+    try {
+      const res = await fetch(`/api/tasks/${currentTask.id}/complete`, { method: "PATCH" })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error?.message)
+
+      const nextIndex = currentIndex + 1
+      const newSummary = {
+        ...summary,
+        completed: summary.completed + 1,
+        pending: summary.pending - 1,
+      }
+      set({
+        currentIndex: nextIndex,
+        currentTask: queue[nextIndex] ?? null,
+        allDone: nextIndex >= queue.length,
+        status: nextIndex >= queue.length ? "completed" : "inProgress",
+        summary: newSummary,
+      })
+
+      return {
+        pointsEarned: data.data.point.amount,
+        encouragement: data.data.encouragement,
+      }
+    } finally {
+      set({ busy: false })
     }
-    set({
-      currentIndex: nextIndex,
-      currentTask: queue[nextIndex] ?? null,
-      allDone: nextIndex >= queue.length,
-      status: nextIndex >= queue.length ? "completed" : "inProgress",
-      summary: newSummary,
-    })
   },
 
-  skipCurrent: () => {
+  skipCurrent: async () => {
+    if (get().busy) return
     const { queue, currentIndex, summary } = get()
-    const nextIndex = currentIndex + 1
-    const newSummary = {
-      ...summary,
-      skipped: summary.skipped + 1,
-      pending: summary.pending - 1,
+    const currentTask = queue[currentIndex]
+    if (!currentTask) return
+
+    set({ busy: true })
+    try {
+      const res = await fetch(`/api/tasks/${currentTask.id}/skip`, { method: "PATCH" })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error?.message)
+
+      const nextIndex = currentIndex + 1
+      const newSummary = {
+        ...summary,
+        skipped: summary.skipped + 1,
+        pending: summary.pending - 1,
+      }
+      set({
+        currentIndex: nextIndex,
+        currentTask: queue[nextIndex] ?? null,
+        allDone: nextIndex >= queue.length,
+        status: nextIndex >= queue.length ? "completed" : "inProgress",
+        summary: newSummary,
+      })
+    } finally {
+      set({ busy: false })
     }
-    set({
-      currentIndex: nextIndex,
-      currentTask: queue[nextIndex] ?? null,
-      allDone: nextIndex >= queue.length,
-      status: nextIndex >= queue.length ? "completed" : "inProgress",
-      summary: newSummary,
-    })
   },
 
   updateSummary: summary => set({ summary }),
