@@ -40,8 +40,14 @@ export function generateReport(
     }))
     .sort((a, b) => b.avgScore - a.avgScore)
 
+  // 取平均分最高的 2 个作为优势
   const strengths = categoryScores.slice(0, 2).map(s => s.category)
-  const weaknesses = categoryScores.slice(-2).map(s => s.category)
+
+  // 取平均分最低的 2 个作为待提升，排除已选为优势的分类
+  const weaknesses = categoryScores
+    .filter(s => !strengths.includes(s.category))
+    .slice(-2)
+    .map(s => s.category)
 
   const suggestions = generateSuggestions(weaknesses)
 
