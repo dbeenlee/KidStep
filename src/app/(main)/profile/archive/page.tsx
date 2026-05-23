@@ -7,6 +7,8 @@ import { useChildStore } from "@/stores/useChildStore"
 import { useToast } from "@/hooks/useToast"
 import { TimelineItem } from "@/components/business/TimelineItem"
 import GrowthPoster from "@/components/business/GrowthPoster"
+import { HomeworkRecognizer } from "@/components/business/HomeworkRecognizer"
+import { VoiceRecorder } from "@/components/ui/VoiceRecorder"
 import dayjs from "dayjs"
 
 /** 里程碑数据类型 */
@@ -30,6 +32,7 @@ const milestoneTypes = [
   { value: "TEXT", label: "文字记录" },
   { value: "PHOTO", label: "照片" },
   { value: "ASSESSMENT", label: "评估记录" },
+  { value: "HOMEWORK", label: "作业识别" },
 ]
 
 export default function ArchivePage() {
@@ -209,6 +212,49 @@ export default function ArchivePage() {
       fileInputRef.current.value = ""
     }
   }
+
+  /** 作业识别保存回调：上传图片 + 创建里程碑 */
+  const handleHomeworkSave = useCallback(async (analysis: string, _imageUrl: string, file: File) => {
+    if (!currentChild) return
+
+    setLoading(true)
+    try {
+      // 上传图片到服务器
+      const uploadForm = new FormData()
+      uploadForm.append("file", file)
+      const uploadRes = await fetch("/api/upload", { method: "POST", body: uploadForm })
+      const uploadData = await uploadRes.json()
+
+      if (!uploadData.success) {
+        showError(uploadData.error?.message ?? "图片上传失败")
+        return
+      }
+
+      // 创建里程碑
+      const res = await fetch("/api/milestones", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          childId: currentChild.id,
+          type: "PHOTO",
+          content: analysis,
+          mediaUrls: [uploadData.data.url],
+        }),
+      })
+
+      const data = await res.json()
+      if (data.success) {
+        setMilestones(prev => [data.data, ...prev])
+        setShowForm(false)
+        setFormContent("")
+      }
+    } catch (err) {
+      console.error("保存作业识别结果失败:", err)
+      showError("保存失败，请稍后重试")
+    } finally {
+      setLoading(false)
+    }
+  }, [currentChild, showError])
 
   /** 删除里程碑 */
   async function handleDelete(id: string) {
@@ -405,82 +451,108 @@ export default function ArchivePage() {
               ))}
             </div>
 
-            {/* 照片选择器（仅 PHOTO 类型显示） */}
-            {formType === "PHOTO" && (
-              <div className="space-y-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  multiple
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full h-20 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-[#4CAF50] hover:text-[#4CAF50] transition-colors"
-                >
-                  <Camera size={24} />
-                  <span className="text-xs">点击选择照片（可多选）</span>
-                </button>
-
-                {/* 预览已选图片 */}
-                {previewUrls.length > 0 && (
-                  <div className="flex gap-2 flex-wrap">
-                    {previewUrls.map((url, i) => (
-                      <div key={i} className="relative w-16 h-16">
-                        <img
-                          src={url}
-                          alt={`预览 ${i + 1}`}
-                          className="w-16 h-16 object-cover rounded-lg"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeFile(i)}
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* 上传进度 */}
-                {uploading && (
-                  <div className="space-y-1">
-                    <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-[#4CAF50] rounded-full transition-all"
-                        style={{ width: `${uploadProgress}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-gray-500 text-center">
-                      上传中 {uploadProgress}%
-                    </p>
-                  </div>
-                )}
-              </div>
+            {/* 作业识别（仅 HOMEWORK 类型显示） */}
+            {formType === "HOMEWORK" && (
+              <HomeworkRecognizer
+                childId={currentChild.id}
+                onSave={handleHomeworkSave}
+              />
             )}
 
-            {/* 文字内容 */}
-            <textarea
-              value={formContent}
-              onChange={e => setFormContent(e.target.value)}
-              placeholder={formType === "PHOTO" ? "添加描述（可选）..." : "记录这个重要时刻..."}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm resize-none focus:outline-none focus:border-[#4CAF50] bg-transparent"
-              required={formType !== "PHOTO"}
-            />
+            {/* 以下为非 HOMEWORK 类型的表单内容 */}
+            {formType !== "HOMEWORK" && (
+              <>
+                {/* 照片选择器（仅 PHOTO 类型显示） */}
+                {formType === "PHOTO" && (
+                  <div className="space-y-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full h-20 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-[#4CAF50] hover:text-[#4CAF50] transition-colors"
+                    >
+                      <Camera size={24} />
+                      <span className="text-xs">点击选择照片（可多选）</span>
+                    </button>
 
-            <button
-              type="submit"
-              disabled={loading || (formType !== "PHOTO" && !formContent.trim()) || (formType === "PHOTO" && selectedFiles.length === 0)}
-              className="w-full h-10 bg-[#4CAF50] text-white rounded-xl font-medium text-sm disabled:opacity-50 active:scale-[0.98] transition-transform"
-            >
-              {loading ? "保存中..." : "保存"}
-            </button>
+                    {/* 预览已选图片 */}
+                    {previewUrls.length > 0 && (
+                      <div className="flex gap-2 flex-wrap">
+                        {previewUrls.map((url, i) => (
+                          <div key={i} className="relative w-16 h-16">
+                            <img
+                              src={url}
+                              alt={`预览 ${i + 1}`}
+                              className="w-16 h-16 object-cover rounded-lg"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeFile(i)}
+                              className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 上传进度 */}
+                    {uploading && (
+                      <div className="space-y-1">
+                        <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-[#4CAF50] rounded-full transition-all"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 text-center">
+                          上传中 {uploadProgress}%
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 文字内容 */}
+                <div className="relative">
+                  <textarea
+                    value={formContent}
+                    onChange={e => setFormContent(e.target.value)}
+                    placeholder={formType === "PHOTO" ? "添加描述（可选）..." : "记录这个重要时刻..."}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm resize-none focus:outline-none focus:border-[#4CAF50] bg-transparent"
+                    required={formType !== "PHOTO"}
+                  />
+                  {/* 语音输入（仅文字记录模式） */}
+                  {formType === "TEXT" && (
+                    <div className="absolute bottom-2 right-2">
+                      <VoiceRecorder
+                        onTranscribed={text => {
+                          setFormContent(prev => prev ? `${prev}\n${text}` : text)
+                        }}
+                        disabled={loading}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || (formType !== "PHOTO" && !formContent.trim()) || (formType === "PHOTO" && selectedFiles.length === 0)}
+                  className="w-full h-10 bg-[#4CAF50] text-white rounded-xl font-medium text-sm disabled:opacity-50 active:scale-[0.98] transition-transform"
+                >
+                  {loading ? "保存中..." : "保存"}
+                </button>
+              </>
+            )}
           </form>
         </div>
       )}
