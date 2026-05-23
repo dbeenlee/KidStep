@@ -120,6 +120,8 @@ export function HomeworkRecognizer({ childId: _childId, onSave }: HomeworkRecogn
           <img
             src={previewUrl}
             alt="作业预览"
+            width={400}
+            height={256}
             className="w-full max-h-64 object-contain"
           />
         </div>

@@ -1,9 +1,18 @@
 import type { Metadata, Viewport } from "next"
+import { Noto_Sans_SC } from "next/font/google"
 import "./globals.css"
 import { Providers } from "./providers"
 import { VercelAnalytics } from "@/components/Analytics"
 import { PwaInstaller } from "@/components/PwaInstaller"
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister"
+import { SeoJsonLd } from "@/components/SeoJsonLd"
+
+const notoSansSC = Noto_Sans_SC({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  display: "swap",
+  variable: "--font-noto-sans-sc",
+})
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -50,14 +59,15 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="zh-CN" suppressHydrationWarning>
-      <body className="min-h-screen bg-background text-foreground transition-colors">
+    <html lang="zh-CN" className={notoSansSC.variable} suppressHydrationWarning>
+      <body className="min-h-screen bg-background text-foreground font-sans transition-colors">
         <Providers>
           {children}
         </Providers>
         <PwaInstaller />
         <VercelAnalytics />
         <ServiceWorkerRegister />
+        <SeoJsonLd />
       </body>
     </html>
   )

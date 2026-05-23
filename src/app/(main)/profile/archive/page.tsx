@@ -490,6 +490,8 @@ export default function ArchivePage() {
                             <img
                               src={url}
                               alt={`预览 ${i + 1}`}
+                              width={64}
+                              height={64}
                               className="w-16 h-16 object-cover rounded-lg"
                             />
                             <button
@@ -633,6 +635,8 @@ export default function ArchivePage() {
             <img
               src={posterDataUrl}
               alt="成长海报"
+              width={375}
+              height={667}
               className="w-full rounded-2xl shadow-2xl"
             />
 

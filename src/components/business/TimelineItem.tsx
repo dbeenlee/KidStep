@@ -102,6 +102,8 @@ export function TimelineItem({ milestone, onDelete }: TimelineItemProps) {
                   <img
                     src={url}
                     alt={`照片 ${i + 1}`}
+                    width={64}
+                    height={64}
                     className="w-16 h-16 object-cover"
                     loading="lazy"
                   />
@@ -132,6 +134,8 @@ export function TimelineItem({ milestone, onDelete }: TimelineItemProps) {
           <img
             src={urls[lightboxIndex]}
             alt={`照片 ${lightboxIndex + 1}`}
+            width={800}
+            height={600}
             className="max-w-full max-h-[80vh] object-contain rounded-lg"
             onClick={e => e.stopPropagation()}
           />

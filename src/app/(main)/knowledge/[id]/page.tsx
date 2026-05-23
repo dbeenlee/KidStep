@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ArrowLeft, Heart, Share2, Eye, ChevronUp } from "lucide-react"
-import { marked } from "marked"
 import { useToast } from "@/hooks/useToast"
 import ArticleCard from "@/components/business/ArticleCard"
 import { SkeletonCard } from "@/components/ui/SkeletonCard"
@@ -66,7 +65,8 @@ export default function ArticleDetailPage() {
       const data = await res.json()
       if (data.success) {
         setArticle(data.data)
-        // 渲染 markdown
+        // 动态导入 marked 并渲染 markdown
+        const { marked } = await import("marked")
         const raw = await marked(data.data.content)
         setHtmlContent(sanitizeHtml(raw as string))
       }
