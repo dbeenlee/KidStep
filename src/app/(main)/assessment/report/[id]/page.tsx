@@ -12,6 +12,7 @@ import {
 import { ArrowLeft, Share2, TrendingUp, TrendingDown, Lightbulb, Trophy } from "lucide-react"
 import { useToast } from "@/hooks/useToast"
 import { isWechatBrowser, setupWechatShareForReport } from "@/lib/wechat"
+import { trackAssessmentCompleted, trackShare } from "@/lib/analytics"
 import { SkeletonCard } from "@/components/ui/SkeletonCard"
 import { DIMENSION_CONFIG, getScoreColor, getScoreLabel } from "@/constants/dimensions"
 import { generateRadarData, calculateScore } from "@/lib/scoring"
@@ -81,6 +82,9 @@ export default function ReportPage() {
       }
 
       setStatus("ready")
+
+      // 埋点：评估完成
+      trackAssessmentCompleted(data.dimension, data.score)
     } catch {
       setStatus("error")
     }
@@ -117,6 +121,9 @@ export default function ReportPage() {
 
   /** 分享功能 */
   function handleShare() {
+    // 埋点：分享操作
+    trackShare("assessment_report", isWechatBrowser() ? "wechat" : "web_share")
+
     // 微信浏览器内配置微信分享
     if (isWechatBrowser() && assessment) {
       setupWechatShareForReport("孩子", assessment.score, dimConfig?.label ?? "能力")

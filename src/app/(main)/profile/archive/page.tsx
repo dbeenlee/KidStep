@@ -9,6 +9,7 @@ import { TimelineItem } from "@/components/business/TimelineItem"
 import GrowthPoster from "@/components/business/GrowthPoster"
 import { HomeworkRecognizer } from "@/components/business/HomeworkRecognizer"
 import { isWechatBrowser, setupWechatShareForPoster } from "@/lib/wechat"
+import { trackPosterGenerated, trackShare } from "@/lib/analytics"
 import { VoiceRecorder } from "@/components/ui/VoiceRecorder"
 import dayjs from "dayjs"
 
@@ -358,6 +359,8 @@ export default function ArchivePage() {
     setPosterDataUrl(dataUrl)
     // 清空触发数据，避免重复渲染
     setPosterChild(null)
+    // 埋点：海报生成
+    trackPosterGenerated()
   }, [])
 
   /** 下载海报图片 */
@@ -375,6 +378,9 @@ export default function ArchivePage() {
   /** 分享海报图片 */
   async function handleSharePoster() {
     if (!posterDataUrl || !currentChild) return
+
+    // 埋点：分享操作
+    trackShare("poster", isWechatBrowser() ? "wechat" : "web_share")
 
     // 微信浏览器内配置微信分享
     if (isWechatBrowser()) {

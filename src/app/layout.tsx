@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next"
 import { Noto_Sans_SC } from "next/font/google"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import "./globals.css"
 import { Providers } from "./providers"
 import { VercelAnalytics } from "@/components/Analytics"
@@ -66,6 +67,7 @@ export default function RootLayout({
         </Providers>
         <PwaInstaller />
         <VercelAnalytics />
+        <SpeedInsights />
         <ServiceWorkerRegister />
         <SeoJsonLd />
       </body>
