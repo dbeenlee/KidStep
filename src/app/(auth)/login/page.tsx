@@ -1,16 +1,36 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
 import Image from "next/image"
 import Link from "next/link"
+import { Suspense } from "react"
 
 type LoginMethod = "phone" | "email"
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
+  )
+}
+
+function LoginContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [method, setMethod] = useState<LoginMethod>("email")
+
+  // 处理微信回调错误
+  useEffect(() => {
+    const error = searchParams.get("error")
+    if (error === "wechat_token_failed" || error === "wechat_userinfo_failed") {
+      setError("微信登录失败，请重试")
+    } else if (error === "wechat_failed" || error === "wechat_config") {
+      setError("微信登录暂未开通")
+    }
+  }, [searchParams])
 
   // 手机号登录状态
   const [phone, setPhone] = useState("")
@@ -231,6 +251,26 @@ export default function LoginPage() {
               </button>
             </div>
           )}
+
+          {/* 微信登录 */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200 dark:border-gray-700" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-white dark:bg-gray-900 px-2 text-gray-400">其他方式</span>
+            </div>
+          </div>
+
+          <a
+            href="/api/auth/wechat/callback"
+            className="flex items-center justify-center gap-2 w-full h-12 bg-[#07C160] text-white font-medium rounded-xl hover:bg-[#06AD56]"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05a6.552 6.552 0 0 1-.227-1.76c0-3.77 3.477-6.822 7.767-6.822.283 0 .557.017.831.04C16.756 4.672 13.047 2.188 8.691 2.188zm-2.6 4.17a1.12 1.12 0 1 1 0 2.24 1.12 1.12 0 0 1 0-2.24zm5.198 0a1.12 1.12 0 1 1 0 2.24 1.12 1.12 0 0 1 0-2.24zM16.114 8.66c-3.735 0-6.782 2.62-6.782 5.844 0 3.224 3.047 5.844 6.782 5.844a8.25 8.25 0 0 0 2.318-.332.722.722 0 0 1 .59.082l1.555.91a.265.265 0 0 0 .136.044c.131 0 .237-.108.237-.24 0-.06-.023-.116-.039-.174l-.32-1.21a.48.48 0 0 1 .174-.544C22.394 17.86 23.3 16.2 23.3 14.504c0-3.224-3.37-5.844-7.186-5.844zm-2.722 3.392a.916.916 0 1 1 0 1.832.916.916 0 0 1 0-1.832zm5.444 0a.916.916 0 1 1 0 1.832.916.916 0 0 1 0-1.832z"/>
+            </svg>
+            微信登录
+          </a>
         </div>
 
         <p className="text-xs text-gray-400 text-center mt-4">
