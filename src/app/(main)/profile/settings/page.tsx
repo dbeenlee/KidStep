@@ -16,6 +16,7 @@ import {
   Check,
   Mail,
   Smartphone,
+  KeyRound,
 } from "lucide-react"
 import { ThemeToggle } from "@/components/business/ThemeToggle"
 import { useToast } from "@/hooks/useToast"
@@ -43,17 +44,32 @@ function SettingsContent() {
     hasPassword: boolean
     nickname: string | null
   } | null>(null)
+  const [smsEnabled, setSmsEnabled] = useState(false)
+  const [wechatEnabled, setWechatEnabled] = useState(false)
   const [showBindEmail, setShowBindEmail] = useState(false)
   const [bindEmail, setBindEmail] = useState("")
   const [bindPassword, setBindPassword] = useState("")
   const [bindLoading, setBindLoading] = useState(false)
+  const [showChangePassword, setShowChangePassword] = useState(false)
+  const [oldPassword, setOldPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmNewPassword, setConfirmNewPassword] = useState("")
+  const [changePwLoading, setChangePwLoading] = useState(false)
 
-  // 加载账号信息
+  // 加载账号信息和功能开关
   useEffect(() => {
     fetch("/api/auth/account")
       .then(r => r.json())
       .then(json => {
         if (json.success) setAccount(json.data)
+      })
+      .catch(() => {})
+
+    fetch("/api/config")
+      .then(r => r.json())
+      .then(config => {
+        setSmsEnabled(config.smsEnabled)
+        setWechatEnabled(config.wechatEnabled)
       })
       .catch(() => {})
   }, [])
@@ -98,6 +114,41 @@ function SettingsContent() {
     }
   }
 
+  /** 修改密码 */
+  async function handleChangePassword() {
+    if (!oldPassword || !newPassword) return
+    if (newPassword.length < 6) {
+      showError("新密码至少需要6位")
+      return
+    }
+    if (newPassword !== confirmNewPassword) {
+      showError("两次新密码不一致")
+      return
+    }
+    setChangePwLoading(true)
+    try {
+      const res = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oldPassword, newPassword }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        showError(json.error?.message ?? "修改失败")
+        return
+      }
+      success("密码修改成功")
+      setShowChangePassword(false)
+      setOldPassword("")
+      setNewPassword("")
+      setConfirmNewPassword("")
+    } catch {
+      showError("修改失败，请重试")
+    } finally {
+      setChangePwLoading(false)
+    }
+  }
+
   /** 清除缓存 */
   function handleClearCache() {
     if (!window.confirm("确定要清除本地缓存吗？")) return
@@ -116,9 +167,6 @@ function SettingsContent() {
     localStorage.clear()
     router.push("/login")
   }
-
-  // 判断登录方式
-  const loginMethod = account?.phone ? "phone" : account?.email ? "email" : "wechat"
 
   return (
     <div className="px-4 py-6 max-w-lg md:max-w-2xl mx-auto">
@@ -140,7 +188,7 @@ function SettingsContent() {
             <div className="w-8 h-8 rounded-lg bg-[#4CAF50]/10 flex items-center justify-center">
               <Link2 size={16} className="text-[#4CAF50]" />
             </div>
-            <span className="text-sm font-medium">账号绑定</span>
+            <span className="text-sm font-medium">账号</span>
           </div>
         </div>
 
@@ -166,43 +214,47 @@ function SettingsContent() {
         </div>
 
         {/* 微信状态 */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-50 dark:border-gray-800">
-          <div className="flex items-center gap-3">
-            <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05a6.552 6.552 0 0 1-.227-1.76c0-3.77 3.477-6.822 7.767-6.822.283 0 .557.017.831.04C16.756 4.672 13.047 2.188 8.691 2.188zm-2.6 4.17a1.12 1.12 0 1 1 0 2.24 1.12 1.12 0 0 1 0-2.24zm5.198 0a1.12 1.12 0 1 1 0 2.24 1.12 1.12 0 0 1 0-2.24z"/>
-            </svg>
-            <span className="text-sm">微信</span>
+        {wechatEnabled && (
+          <div className="flex items-center justify-between p-4 border-b border-gray-50 dark:border-gray-800">
+            <div className="flex items-center gap-3">
+              <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05a6.552 6.552 0 0 1-.227-1.76c0-3.77 3.477-6.822 7.767-6.822.283 0 .557.017.831.04C16.756 4.672 13.047 2.188 8.691 2.188zm-2.6 4.17a1.12 1.12 0 1 1 0 2.24 1.12 1.12 0 0 1 0-2.24zm5.198 0a1.12 1.12 0 1 1 0 2.24 1.12 1.12 0 0 1 0-2.24z"/>
+              </svg>
+              <span className="text-sm">微信</span>
+            </div>
+            {account?.hasWechat ? (
+              <span className="flex items-center gap-1 text-sm text-[#4CAF50]">
+                <Check size={14} />
+                已绑定
+              </span>
+            ) : (
+              <a
+                href="/api/auth/wechat/bind"
+                className="text-sm text-[#4CAF50] font-medium"
+              >
+                去绑定
+              </a>
+            )}
           </div>
-          {account?.hasWechat ? (
-            <span className="flex items-center gap-1 text-sm text-[#4CAF50]">
-              <Check size={14} />
-              已绑定
-            </span>
-          ) : (
-            <a
-              href="/api/auth/wechat/bind"
-              className="text-sm text-[#4CAF50] font-medium"
-            >
-              去绑定
-            </a>
-          )}
-        </div>
+        )}
 
         {/* 手机号状态 */}
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
-            <Smartphone size={16} className="text-gray-400" />
-            <span className="text-sm">手机号</span>
+        {smsEnabled && (
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <Smartphone size={16} className="text-gray-400" />
+              <span className="text-sm">手机号</span>
+            </div>
+            {account?.phone ? (
+              <span className="flex items-center gap-1 text-sm text-[#4CAF50]">
+                <Check size={14} />
+                {account.phone.replace(/(\d{3})\d{4}(\d{4})/, "$1****$2")}
+              </span>
+            ) : (
+              <span className="text-sm text-gray-400">未绑定</span>
+            )}
           </div>
-          {account?.phone ? (
-            <span className="flex items-center gap-1 text-sm text-[#4CAF50]">
-              <Check size={14} />
-              {account.phone.replace(/(\d{3})\d{4}(\d{4})/, "$1****$2")}
-            </span>
-          ) : (
-            <span className="text-sm text-gray-400">未绑定</span>
-          )}
-        </div>
+        )}
       </div>
 
       {/* 绑定邮箱弹窗 */}
@@ -239,6 +291,53 @@ function SettingsContent() {
                 className="flex-1 h-11 bg-[#4CAF50] text-white rounded-xl text-sm font-medium disabled:opacity-50"
               >
                 {bindLoading ? "绑定中..." : "确认绑定"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 修改密码弹窗 */}
+      {showChangePassword && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-sm">
+            <h3 className="text-lg font-semibold mb-4">修改密码</h3>
+            <div className="space-y-3 mb-4">
+              <input
+                type="password"
+                value={oldPassword}
+                onChange={e => setOldPassword(e.target.value)}
+                placeholder="请输入原密码"
+                className="w-full h-11 px-4 border border-gray-200 dark:border-gray-700 rounded-xl text-sm bg-transparent focus:outline-none focus:border-[#4CAF50]"
+              />
+              <input
+                type="password"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder="新密码（至少6位）"
+                className="w-full h-11 px-4 border border-gray-200 dark:border-gray-700 rounded-xl text-sm bg-transparent focus:outline-none focus:border-[#4CAF50]"
+              />
+              <input
+                type="password"
+                value={confirmNewPassword}
+                onChange={e => setConfirmNewPassword(e.target.value)}
+                placeholder="确认新密码"
+                className="w-full h-11 px-4 border border-gray-200 dark:border-gray-700 rounded-xl text-sm bg-transparent focus:outline-none focus:border-[#4CAF50]"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowChangePassword(false); setOldPassword(""); setNewPassword(""); setConfirmNewPassword("") }}
+                className="flex-1 h-11 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-600 dark:text-gray-300 text-sm"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleChangePassword}
+                disabled={changePwLoading}
+                className="flex-1 h-11 bg-[#4CAF50] text-white rounded-xl text-sm font-medium disabled:opacity-50"
+              >
+                {changePwLoading ? "修改中..." : "确认修改"}
               </button>
             </div>
           </div>
@@ -303,6 +402,22 @@ function SettingsContent() {
 
       {/* 其他设置 */}
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm overflow-hidden mb-4">
+        {/* 修改密码 */}
+        {account?.hasPassword && (
+          <button
+            onClick={() => setShowChangePassword(true)}
+            className="w-full flex items-center justify-between p-4 border-b border-gray-50 dark:border-gray-800 active:bg-gray-50 dark:active:bg-gray-800 transition-colors touch-target"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[#FF9800]/10 flex items-center justify-center">
+                <KeyRound size={16} className="text-[#FF9800]" />
+              </div>
+              <span className="text-sm">修改密码</span>
+            </div>
+            <ChevronRight size={16} className="text-gray-300" />
+          </button>
+        )}
+
         <button
           onClick={handleClearCache}
           className="w-full flex items-center justify-between p-4 border-b border-gray-50 dark:border-gray-800 active:bg-gray-50 dark:active:bg-gray-800 transition-colors touch-target"

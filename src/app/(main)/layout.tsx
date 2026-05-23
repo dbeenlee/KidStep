@@ -1,10 +1,12 @@
 "use client"
 
+import { useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Home, BookOpen, BarChart3, BarChart2, ClipboardList, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useMediaQuery } from "@/hooks/useMediaQuery"
+import { useChildStore } from "@/stores/useChildStore"
 
 const tabs = [
   { href: "/home", icon: Home, label: "首页" },
@@ -22,6 +24,18 @@ export default function MainLayout({
 }) {
   const pathname = usePathname()
   const isDesktop = useMediaQuery("(min-width: 1024px)")
+  const { setChildren, setSharedChildren } = useChildStore()
+
+  // 预加载孩子数据
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/children").then(r => r.json()),
+      fetch("/api/children/shared").then(r => r.json()).catch(() => ({ data: [] })),
+    ]).then(([own, shared]) => {
+      if (own.data) setChildren(own.data)
+      if (shared.data) setSharedChildren(shared.data)
+    }).catch(() => {})
+  }, [setChildren, setSharedChildren])
 
   // SSR 水合前渲染占位符，避免布局闪烁
   if (isDesktop === null) {

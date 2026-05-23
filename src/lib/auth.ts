@@ -46,13 +46,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         })
         if (!smsCode) return null
 
-        // 标记已使用
         await db.smsCode.update({
           where: { id: smsCode.id },
           data: { used: true },
         })
 
-        // 查找或创建用户
         const user = await db.user.upsert({
           where: { phone },
           create: { phone },
@@ -75,13 +73,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const password = credentials?.password as string
         if (!email || !password) return null
 
-        // 查找用户
         const user = await db.user.findUnique({
           where: { email },
         })
         if (!user || !user.passwordHash) return null
 
-        // 验证密码
         const isValid = await compare(password, user.passwordHash)
         if (!isValid) return null
 

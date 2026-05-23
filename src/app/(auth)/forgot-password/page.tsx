@@ -5,14 +5,10 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
 
-export default function RegisterPage() {
+export default function ForgotPasswordPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [code, setCode] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [nickname, setNickname] = useState("")
-  const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
   const [countdown, setCountdown] = useState(0)
   const [error, setError] = useState("")
@@ -36,7 +32,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/send-email-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, type: "register" }),
+        body: JSON.stringify({ email, type: "reset" }),
       })
       const json = await res.json()
 
@@ -63,48 +59,13 @@ export default function RegisterPage() {
     }
   }
 
-  /** 注册 */
-  const handleRegister = async () => {
-    if (!email) {
-      setError("请输入邮箱")
-      return
-    }
+  /** 下一步 */
+  const handleNext = () => {
     if (!code || code.length !== 6) {
       setError("请输入6位验证码")
       return
     }
-    if (!password || password.length < 6) {
-      setError("密码至少需要6位")
-      return
-    }
-    if (password !== confirmPassword) {
-      setError("两次密码不一致")
-      return
-    }
-
-    setLoading(true)
-    setError("")
-
-    try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, nickname: nickname || undefined, code }),
-      })
-
-      const json = await res.json()
-
-      if (!res.ok) {
-        setError(json.error?.message ?? "注册失败")
-        return
-      }
-
-      router.push("/login")
-    } catch {
-      setError("注册失败，请稍后重试")
-    } finally {
-      setLoading(false)
-    }
+    router.push(`/reset-password?email=${encodeURIComponent(email)}&code=${code}`)
   }
 
   return (
@@ -121,12 +82,12 @@ export default function RegisterPage() {
             priority
           />
           <h1 className="text-3xl font-bold text-[#4CAF50]">童行</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">创建账号，开始成长之旅</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">找回密码</p>
         </div>
 
-        {/* 注册卡片 */}
+        {/* 找回密码卡片 */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm">
-          <h2 className="text-lg font-semibold mb-4">邮箱注册</h2>
+          <h2 className="text-lg font-semibold mb-4">找回密码</h2>
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm rounded-lg">
@@ -141,7 +102,7 @@ export default function RegisterPage() {
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="请输入邮箱"
+                placeholder="请输入注册邮箱"
                 className="w-full h-12 px-4 border border-gray-200 dark:border-gray-700 rounded-xl text-base bg-transparent focus:outline-none focus:border-[#4CAF50]"
               />
             </div>
@@ -164,52 +125,18 @@ export default function RegisterPage() {
                   {sending ? "发送中..." : countdown > 0 ? `${countdown}秒` : "获取验证码"}
                 </button>
               </div>
-              <p className="text-xs text-gray-400 mt-2">开发模式：任意6位数字即可注册</p>
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">昵称（可选）</label>
-              <input
-                type="text"
-                value={nickname}
-                onChange={e => setNickname(e.target.value)}
-                placeholder="给自己起个名字"
-                className="w-full h-12 px-4 border border-gray-200 dark:border-gray-700 rounded-xl text-base bg-transparent focus:outline-none focus:border-[#4CAF50]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">密码</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="至少6位"
-                className="w-full h-12 px-4 border border-gray-200 dark:border-gray-700 rounded-xl text-base bg-transparent focus:outline-none focus:border-[#4CAF50]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">确认密码</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
-                placeholder="再次输入密码"
-                className="w-full h-12 px-4 border border-gray-200 dark:border-gray-700 rounded-xl text-base bg-transparent focus:outline-none focus:border-[#4CAF50]"
-              />
+              <p className="text-xs text-gray-400 mt-2">开发模式：任意6位数字即可</p>
             </div>
 
             <button
-              onClick={handleRegister}
-              disabled={loading}
-              className="w-full h-12 bg-[#4CAF50] text-white font-medium rounded-xl hover:bg-[#43A047] disabled:opacity-50"
+              onClick={handleNext}
+              className="w-full h-12 bg-[#4CAF50] text-white font-medium rounded-xl hover:bg-[#43A047]"
             >
-              {loading ? "注册中..." : "注册"}
+              下一步
             </button>
 
             <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-              已有账号？
+              想起密码了？
               <Link href="/login" className="text-[#4CAF50] ml-1">登录</Link>
             </p>
           </div>

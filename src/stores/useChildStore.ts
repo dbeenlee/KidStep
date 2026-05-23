@@ -22,6 +22,8 @@ interface ChildStore {
   children: Child[]
   /** 共享的孩子列表（被邀请访问） */
   sharedChildren: Child[]
+  /** 数据是否已加载 */
+  loaded: boolean
   /** 设置当前孩子 */
   setCurrentChild: (child: Child) => void
   /** 设置孩子列表 */
@@ -40,10 +42,12 @@ export const useChildStore = create<ChildStore>((set, get) => ({
   currentChild: null,
   children: [],
   sharedChildren: [],
+  loaded: false,
   setCurrentChild: child => set({ currentChild: child }),
   setChildren: children =>
     set(state => ({
       children,
+      loaded: true,
       currentChild: state.currentChild ?? children[0] ?? null,
     })),
   setSharedChildren: sharedChildren => set({ sharedChildren }),

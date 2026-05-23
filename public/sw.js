@@ -1,4 +1,4 @@
-const CACHE_NAME = "kidstep-v2"
+const CACHE_NAME = "kidstep-v4"
 const STATIC_ASSETS = ["/"]
 
 self.addEventListener("install", (event) => {
@@ -23,6 +23,10 @@ self.addEventListener("fetch", (event) => {
 
   // API 请求：Network-First，不缓存
   if (url.pathname.startsWith("/api/")) {
+    // 认证相关 API 不拦截，直接走网络
+    if (url.pathname.startsWith("/api/auth/")) {
+      return
+    }
     event.respondWith(
       fetch(request).catch(() => new Response(JSON.stringify({ error: "网络不可用" }), {
         status: 503,

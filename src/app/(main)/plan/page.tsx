@@ -53,7 +53,7 @@ const PHASES = [
 ]
 
 export default function PlanPage() {
-  const { currentChild } = useChildStore()
+  const { currentChild, loaded } = useChildStore()
   const {
     currentTask,
     allDone,
@@ -152,6 +152,18 @@ export default function PlanPage() {
     },
     [currentChild]
   )
+
+  // 数据加载中
+  if (!loaded) {
+    return (
+      <div className="px-4 py-6 max-w-lg md:max-w-2xl mx-auto">
+        <h1 className="text-xl md:text-2xl font-bold mb-4">训练计划</h1>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-sm">
+          <div className="h-8 w-32 bg-gray-100 dark:bg-gray-800 rounded animate-pulse mx-auto" />
+        </div>
+      </div>
+    )
+  }
 
   // 未选择孩子
   if (!currentChild) {

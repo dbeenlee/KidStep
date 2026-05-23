@@ -5,36 +5,25 @@ import { db } from "@/lib/db"
 /** 是否为开发环境 */
 const isDev = process.env.NODE_ENV === "development"
 
-/** POST /api/auth/register - 邮箱注册 */
+/** POST /api/auth/reset-password — 重置密码 */
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { email, password, nickname, code } = body as {
+    const { email, code, newPassword } = body as {
       email?: string
-      password?: string
-      nickname?: string
       code?: string
+      newPassword?: string
     }
 
     // 参数校验
-    if (!email || !password || !code) {
+    if (!email || !code || !newPassword) {
       return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "邮箱、密码和验证码不能为空" } },
+        { success: false, error: { code: "VALIDATION_ERROR", message: "邮箱、验证码和新密码不能为空" } },
         { status: 400 }
       )
     }
 
-    // 邮箱格式校验
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "邮箱格式不正确" } },
-        { status: 400 }
-      )
-    }
-
-    // 密码强度校验
-    if (password.length < 6) {
+    if (newPassword.length < 6) {
       return NextResponse.json(
         { success: false, error: { code: "VALIDATION_ERROR", message: "密码至少需要6位" } },
         { status: 400 }
@@ -74,36 +63,26 @@ export async function POST(request: Request) {
       }
     }
 
-    // 检查邮箱是否已注册
-    const existing = await db.user.findUnique({
-      where: { email },
-    })
-    if (existing) {
+    // 查找用户
+    const user = await db.user.findUnique({ where: { email } })
+    if (!user) {
       return NextResponse.json(
-        { success: false, error: { code: "CONFLICT", message: "该邮箱已注册" } },
-        { status: 409 }
+        { success: false, error: { code: "NOT_FOUND", message: "该邮箱未注册" } },
+        { status: 404 }
       )
     }
 
-    // 哈希密码
-    const passwordHash = await hash(password, 10)
-
-    // 创建用户
-    const user = await db.user.create({
-      data: {
-        email,
-        passwordHash,
-        nickname: nickname ?? email.split("@")[0],
-      },
+    // 哈希新密码并更新
+    const passwordHash = await hash(newPassword, 10)
+    await db.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
     })
 
-    return NextResponse.json({
-      success: true,
-      data: { id: user.id, email: user.email, nickname: user.nickname },
-    })
+    return NextResponse.json({ success: true })
   } catch {
     return NextResponse.json(
-      { success: false, error: { code: "INTERNAL_ERROR", message: "注册失败，请稍后重试" } },
+      { success: false, error: { code: "INTERNAL_ERROR", message: "重置失败，请稍后重试" } },
       { status: 500 }
     )
   }

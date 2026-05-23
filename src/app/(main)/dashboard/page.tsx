@@ -53,6 +53,7 @@ interface CheckinStats {
 
 export default function DashboardPage() {
   const currentChild = useChildStore(s => s.currentChild)
+  const loaded = useChildStore(s => s.loaded)
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
   const [stats, setStats] = useState<StatsData | null>(null)
@@ -85,6 +86,14 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  if (!loaded) {
+    return (
+      <div className="px-4 py-6 max-w-lg md:max-w-2xl mx-auto">
+        <div className="h-8 w-32 bg-gray-100 dark:bg-gray-800 rounded animate-pulse mx-auto mt-12" />
+      </div>
+    )
+  }
 
   if (!currentChild) {
     return (
